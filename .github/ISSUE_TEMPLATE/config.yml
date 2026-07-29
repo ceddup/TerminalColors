@@ -1,0 +1,8 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Question or usage help
+    url: https://github.com/ceddup/TerminalColors/discussions
+    about: Ask here rather than opening an issue, if nothing seems broken.
+  - name: Troubleshooting table
+    url: https://github.com/ceddup/TerminalColors#troubleshooting
+    about: Common symptoms and their cause, plus what Invoke-TerminalColorsDoctor checks.

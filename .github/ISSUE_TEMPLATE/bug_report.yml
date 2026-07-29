@@ -1,0 +1,65 @@
+name: Bug report
+description: Something does not colour the way it should
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for the report. The doctor output below answers most questions on its own,
+        so please paste it even if the problem seems obvious.
+
+  - type: textarea
+    id: doctor
+    attributes:
+      label: Invoke-TerminalColorsDoctor
+      description: Run it **from the Windows Terminal tab where the problem happens** and paste the whole output.
+      render: text
+    validations:
+      required: true
+
+  - type: textarea
+    id: what-happens
+    attributes:
+      label: What happens
+      description: What you did, what you expected, what you got instead.
+      placeholder: |
+        I ran `cd C:\Repos\myproject`.
+        Expected: the tab turns green.
+        Got: the background changed but the tab stayed grey.
+    validations:
+      required: true
+
+  - type: input
+    id: versions
+    attributes:
+      label: Versions
+      description: Windows Terminal version, Windows build, and `$PSVersionTable.PSVersion`.
+      placeholder: WT 1.22.10731.0, Windows 11 26200, PS 5.1.26200.1
+    validations:
+      required: true
+
+  - type: dropdown
+    id: source
+    attributes:
+      label: Where the colour should come from
+      options:
+        - .terminalcolors.json
+        - Peacock (.vscode/settings.json)
+        - Solution Colors (.vs/*/color.txt)
+        - Automatic Git repository colour
+        - Not sure
+    validations:
+      required: true
+
+  - type: textarea
+    id: get-terminalcolor
+    attributes:
+      label: Get-TerminalColor output
+      description: "Optional but very useful: `Get-TerminalColor | Format-List` in the affected folder."
+      render: text
+
+  - type: textarea
+    id: prompt
+    attributes:
+      label: Custom prompt
+      description: Do you use oh-my-posh, Starship, or your own `prompt` function? If so, which, and where is `Enable-TerminalColors` called relative to its initialisation in your profile?

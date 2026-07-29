@@ -1,0 +1,88 @@
+name: CI
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  tests:
+    name: Tests (${{ matrix.shell }})
+    runs-on: windows-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        # Le module doit fonctionner sur les deux editions de PowerShell :
+        # Windows PowerShell 5.1 est celui du profil par defaut de Windows Terminal.
+        shell: [powershell, pwsh]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Version de PowerShell
+        shell: ${{ matrix.shell }}
+        run: $PSVersionTable | Format-List
+
+      - name: Validation du manifeste
+        shell: ${{ matrix.shell }}
+        run: Test-ModuleManifest -Path .\src\TerminalColors\TerminalColors.psd1 | Format-List Name, Version, PowerShellVersion
+
+      - name: Tests
+        shell: ${{ matrix.shell }}
+        run: .\tests\Invoke-Tests.ps1
+
+  analyse:
+    name: Analyse statique
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Installer PSScriptAnalyzer
+        shell: pwsh
+        run: Install-Module PSScriptAnalyzer -Force -Scope CurrentUser -SkipPublisherCheck
+
+      - name: Analyser
+        shell: pwsh
+        run: |
+          # Les exclusions et leur justification sont dans le fichier de reglages.
+          $found = Invoke-ScriptAnalyzer -Path . -Recurse -Settings .\PSScriptAnalyzerSettings.psd1
+          if ($found) {
+              $found | Format-Table -AutoSize RuleName, Severity, ScriptName, Line, Message | Out-String -Width 200 | Write-Host
+              throw "$($found.Count) probleme(s) detecte(s)."
+          }
+          Write-Host 'Analyse statique propre.'
+
+  shellcheck:
+    name: Variante bash
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Syntaxe
+        run: bash -n shell/terminalcolors.sh
+
+      - name: Resolution et parite des couleurs automatiques
+        run: |
+          set -e
+          source shell/terminalcolors.sh
+          # Valeurs de reference produites par le module PowerShell.
+          expected_oseille='#15C115'
+          expected_tc='#B0DC2E'
+          actual_oseille=$(_tc_auto_color oseille)
+          actual_tc=$(_tc_auto_color TerminalColors)
+          echo "oseille        attendu=$expected_oseille obtenu=$actual_oseille"
+          echo "TerminalColors attendu=$expected_tc obtenu=$actual_tc"
+          [ "$actual_oseille" = "$expected_oseille" ]
+          [ "$actual_tc" = "$expected_tc" ]
+
+          [ "$(_tc_name_to_hex Burgundy)" = '#FF6347' ]
+          [ "$(_tc_blend '#0C0C0C' '#61DAFB' 0.30)" = '#264A54' ]
+
+          mkdir -p /tmp/p/.vscode /tmp/s/.vs/Sol
+          echo '{ "color": "#215732", "name": "Projet" }' > /tmp/p/.terminalcolors.json
+          echo 'master:Teal' > /tmp/s/.vs/Sol/color.txt
+          mkdir -p /tmp/p/sous/dossier
+          [ "$(_tc_resolve /tmp/p/sous/dossier)" = '#215732|Projet|Config' ]
+          [ "$(_tc_resolve /tmp/s)" = '#008080|Sol|SolutionColors' ]
+          echo 'Variante bash conforme.'

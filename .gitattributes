@@ -1,0 +1,24 @@
+# Normalisation de fin de ligne. Sans cela, un clone sous Windows convertit
+# terminalcolors.sh en CRLF et bash echoue avec "$'\r': command not found".
+
+* text=auto eol=lf
+
+# Le monde PowerShell est en CRLF, et le module doit rester lisible par
+# Windows PowerShell 5.1 comme par les editeurs Windows.
+*.ps1   text eol=crlf
+*.psm1  text eol=crlf
+*.psd1  text eol=crlf
+*.cmd   text eol=crlf
+*.bat   text eol=crlf
+
+# Scripts shell : LF obligatoire, y compris sur un poste Windows.
+*.sh    text eol=lf
+
+*.md    text eol=lf
+*.json  text eol=lf
+*.yml   text eol=lf
+
+# Binaires
+*.png   binary
+*.ico   binary
+*.gif   binary

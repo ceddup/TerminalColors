@@ -1,0 +1,13 @@
+# Sauvegardes creees par TerminalColors
+*.terminalcolors-backup-*
+
+# Sorties de build / publication
+/out/
+/artifacts/
+*.nupkg
+
+# Divers Windows / editeurs
+Thumbs.db
+desktop.ini
+.vs/
+*.user

@@ -1,0 +1,23 @@
+name: Feature request
+description: Suggest a colour source, a setting, or a behaviour change
+labels: [enhancement]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: What are you trying to do
+      description: Describe the situation rather than the solution — it often has a simpler answer than expected.
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: What you have in mind
+      description: A new colour source, a parameter, a different default...
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: What you tried already
+      description: Existing settings you tried, and why they were not enough.

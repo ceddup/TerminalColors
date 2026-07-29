@@ -1,0 +1,10 @@
+version: 2
+updates:
+  # Le projet n'a aucune dependance a l'execution : seules les actions du workflow
+  # sont a suivre, pour ne pas laisser une action epinglee a une version obsolete.
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: monthly
+    commit-message:
+      prefix: ci

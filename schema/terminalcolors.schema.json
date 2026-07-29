@@ -1,0 +1,47 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "TerminalColors - configuration de dossier",
+  "description": "Fichier .terminalcolors.json : associe une couleur a un dossier et, par defaut, a tous ses sous-dossiers.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["color"],
+  "properties": {
+    "$schema": {
+      "type": "string",
+      "description": "URL de ce schema (facultatif, pour l'autocompletion dans l'editeur)."
+    },
+    "color": {
+      "type": "string",
+      "description": "Couleur du projet : code hexadecimal (#RRGGBB), nom de couleur connu (Teal, SteelBlue, ...) ou \"auto\" pour deriver une couleur stable du nom du projet.",
+      "examples": ["#215732", "Teal", "auto"]
+    },
+    "name": {
+      "type": "string",
+      "description": "Libelle affiche dans l'onglet. Par defaut, le nom du dossier."
+    },
+    "icon": {
+      "type": "string",
+      "description": "Symbole affiche devant le libelle. Par defaut, un carre colore deduit de la couleur.",
+      "examples": ["🟩", "⚠", "⚙"]
+    },
+    "tint": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1,
+      "description": "Intensite de la teinte du fond du terminal pour ce projet. Surcharge le reglage global (0,30 par defaut)."
+    },
+    "branches": {
+      "type": "object",
+      "description": "Couleurs par branche Git. La cle accepte les jokers (release/*). La premiere correspondance gagne.",
+      "additionalProperties": {
+        "type": "string"
+      },
+      "examples": [{ "main": "#215732", "release/*": "#B71C1C" }]
+    },
+    "applyToSubfolders": {
+      "type": "boolean",
+      "default": true,
+      "description": "Si false, la couleur ne s'applique qu'a ce dossier precis, pas a ses sous-dossiers."
+    }
+  }
+}
