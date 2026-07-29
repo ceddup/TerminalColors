@@ -1,9 +1,8 @@
-# Installation du theme Windows Terminal qui fait suivre l'onglet et la barre de
-# titre a la couleur de fond du volet actif.
+# Installs the Windows Terminal theme that makes the tab and the title bar follow
+# the active pane's background colour.
 #
-# Les outils d'edition chirurgicale de settings.json sont dans
-# Private\WtSettings.ps1, partages avec Install-TerminalColorsBackdrop et
-# Install-TerminalColorsTitleBar.
+# The surgical settings.json editing helpers live in Private\WtSettings.ps1,
+# shared with Install-TerminalColorsBackdrop and Install-TerminalColorsTitleBar.
 
 $script:TcThemeName = 'TerminalColors'
 
@@ -41,34 +40,33 @@ function Test-TcThemeInstalled {
 function Install-TerminalColorsTheme {
     <#
         .SYNOPSIS
-        Installe le theme [TerminalColors] dans Windows Terminal et l'active.
+        Installs the [TerminalColors] theme into Windows Terminal and selects it.
 
         .DESCRIPTION
-        C'est ce theme qui rend la coloration visible : il indique a Windows
-        Terminal de peindre l'onglet et la barre de titre avec la couleur de
-        fond du volet actif. Le module changeant cette couleur de fond a chaque
-        changement de dossier, l'onglet et la barre de titre suivent
-        automatiquement.
+        This theme is what makes the colouring visible: it tells Windows Terminal
+        to paint the tab and the title bar with the active pane's background
+        colour. Since the module changes that background colour on every directory
+        change, the tab and title bar follow automatically.
 
-        settings.json est modifie par insertion ciblee, avec sauvegarde
-        prealable et validation du resultat avant ecriture.
+        settings.json is modified by targeted insertion, with a backup taken first
+        and the result validated before writing.
 
         .PARAMETER SettingsPath
-        Chemin du settings.json a modifier. Detecte automatiquement par defaut
-        (versions Store, Preview, non empaquetee et portable).
+        Path of the settings.json to modify. Detected automatically by default
+        (Store, Preview, unpackaged and portable versions).
 
         .PARAMETER Force
-        Reinstalle le theme meme s'il est deja present.
+        Reinstalls the theme even when it is already present.
 
         .PARAMETER NoBackup
-        N'ecrit pas de copie de sauvegarde.
+        Does not write a backup copy.
 
         .EXAMPLE
         Install-TerminalColorsTheme
 
         .EXAMPLE
         Install-TerminalColorsTheme -WhatIf
-        Montre ce qui serait modifie sans rien ecrire.
+        Shows what would change without writing anything.
     #>
     [CmdletBinding(SupportsShouldProcess, ConfirmImpact = 'Medium')]
     [OutputType([pscustomobject])]
@@ -82,26 +80,26 @@ function Install-TerminalColorsTheme {
 
     $text = [System.IO.File]::ReadAllText($SettingsPath)
     if ($null -eq (ConvertFrom-TcJsonText -Text $text)) {
-        throw "TerminalColors : [$SettingsPath] n'est pas un JSON valide. Corrigez-le avant d'installer le theme."
+        throw "TerminalColors: [$SettingsPath] is not valid JSON. Fix it before installing the theme."
     }
 
     $alreadyInstalled = Test-TcThemeInstalled -Text $text
     if ($alreadyInstalled -and -not $Force) {
-        Write-Verbose 'TerminalColors: theme deja present, seule la selection est verifiee.'
+        Write-Verbose 'TerminalColors: theme already present, only the selection is checked.'
     }
 
     $newText = $text
     $masked = Get-TcMaskedJson -Text $newText
     $changes = @()
 
-    # --- 1. Retirer une version precedente du theme si -Force ---------------
+    # --- 1. Remove a previous version of the theme when -Force --------------
     if ($alreadyInstalled -and $Force) {
         $m = [regex]::Match($masked, '"name"\s*:\s*"TerminalColors"')
         $span = Find-TcJsonObjectSpan -Text $masked -Index $m.Index
         if ($span) {
             $start = $span.Start
             $end = $span.End
-            # Absorber la virgule adjacente pour garder un tableau valide
+            # Absorb the adjacent comma to keep the array valid
             $after = $end + 1
             while ($after -lt $masked.Length -and [char]::IsWhiteSpace($masked[$after])) { $after++ }
             if ($after -lt $masked.Length -and $masked[$after] -eq ',') {
@@ -113,12 +111,12 @@ function Install-TerminalColorsTheme {
             }
             $newText = $newText.Remove($start, $end - $start + 1)
             $masked = Get-TcMaskedJson -Text $newText
-            $changes += 'ancien theme retire'
+            $changes += 'previous theme removed'
             $alreadyInstalled = $false
         }
     }
 
-    # --- 2. Inserer le theme dans le tableau "themes" -----------------------
+    # --- 2. Insert the theme into the "themes" array ------------------------
     if (-not $alreadyInstalled) {
         $themeJson = Get-TcThemeJson
         $m = [regex]::Match($masked, '"themes"\s*:\s*\[')
@@ -131,19 +129,19 @@ function Install-TerminalColorsTheme {
             $fragment = [Environment]::NewLine + '        ' + $themeJson
             if ($needsComma) { $fragment += ',' } else { $fragment += [Environment]::NewLine + '    ' }
             $newText = $newText.Insert($insertAt, $fragment)
-            $changes += 'theme ajoute a "themes"'
+            $changes += 'theme added to "themes"'
         } else {
             $rootBrace = $masked.IndexOf('{')
-            if ($rootBrace -lt 0) { throw 'TerminalColors : structure de settings.json inattendue.' }
+            if ($rootBrace -lt 0) { throw 'TerminalColors: unexpected settings.json structure.' }
             $fragment = [Environment]::NewLine + '    "themes":' + [Environment]::NewLine + '    [' +
                         [Environment]::NewLine + '        ' + $themeJson + [Environment]::NewLine + '    ],'
             $newText = $newText.Insert($rootBrace + 1, $fragment)
-            $changes += 'section "themes" creee'
+            $changes += '"themes" section created'
         }
         $masked = Get-TcMaskedJson -Text $newText
     }
 
-    # --- 3. Selectionner le theme ------------------------------------------
+    # --- 3. Select the theme ------------------------------------------------
     $previousTheme = $null
     $m = [regex]::Match($masked, '"theme"\s*:\s*(?:"[^"]*"|\{[^{}]*\})')
     if ($m.Success) {
@@ -152,16 +150,16 @@ function Install-TerminalColorsTheme {
             $vm = [regex]::Match($currentValue, '"theme"\s*:\s*(.+)$', 'Singleline')
             if ($vm.Success) { $previousTheme = $vm.Groups[1].Value.Trim() }
             $newText = $newText.Remove($m.Index, $m.Length).Insert($m.Index, '"theme": "TerminalColors"')
-            $changes += 'theme selectionne'
+            $changes += 'theme selected'
         }
     } else {
         $rootBrace = $masked.IndexOf('{')
         $newText = $newText.Insert($rootBrace + 1, [Environment]::NewLine + '    "theme": "TerminalColors",')
-        $changes += 'theme selectionne'
+        $changes += 'theme selected'
     }
 
     if ($changes.Count -eq 0) {
-        Write-Verbose 'TerminalColors: rien a modifier.'
+        Write-Verbose 'TerminalColors: nothing to change.'
         return [pscustomobject]@{
             SettingsPath = $SettingsPath
             Changed      = $false
@@ -170,20 +168,20 @@ function Install-TerminalColorsTheme {
         }
     }
 
-    # --- 4. Validation avant ecriture --------------------------------------
+    # --- 4. Validate before writing -----------------------------------------
     $parsed = ConvertFrom-TcJsonText -Text $newText
     if ($null -eq $parsed) {
-        throw 'TerminalColors : la modification aurait produit un JSON invalide. Aucun changement ecrit. Signalez ce cas avec votre settings.json.'
+        throw 'TerminalColors: the change would have produced invalid JSON. Nothing was written. Please report this case along with your settings.json.'
     }
     if ([string]$parsed.theme -ne $script:TcThemeName) {
-        throw 'TerminalColors : verification echouee (theme non selectionne). Aucun changement ecrit.'
+        throw 'TerminalColors: verification failed (theme not selected). Nothing was written.'
     }
     if (-not ($parsed.themes | Where-Object { $_.name -eq $script:TcThemeName })) {
-        throw 'TerminalColors : verification echouee (theme absent de la liste). Aucun changement ecrit.'
+        throw 'TerminalColors: verification failed (theme missing from the list). Nothing was written.'
     }
 
     $backupPath = $null
-    if ($PSCmdlet.ShouldProcess($SettingsPath, "Installer le theme TerminalColors ($($changes -join ', '))")) {
+    if ($PSCmdlet.ShouldProcess($SettingsPath, "Install the TerminalColors theme ($($changes -join ', '))")) {
         $backupPath = Save-TcWtSettings -Path $SettingsPath -Text $newText -NoBackup:$NoBackup
         if ($previousTheme) { Set-TcInstallState -Name 'PreviousTheme' -Value $previousTheme }
     }
@@ -199,14 +197,14 @@ function Install-TerminalColorsTheme {
 function Uninstall-TerminalColorsTheme {
     <#
         .SYNOPSIS
-        Retire le theme [TerminalColors] de Windows Terminal et restaure le
-        theme precedemment selectionne.
+        Removes the [TerminalColors] theme from Windows Terminal and restores the
+        previously selected theme.
 
         .PARAMETER SettingsPath
-        Chemin du settings.json a modifier. Detecte automatiquement par defaut.
+        Path of the settings.json to modify. Detected automatically by default.
 
         .PARAMETER NoBackup
-        N'ecrit pas de copie de sauvegarde.
+        Does not write a backup copy.
 
         .EXAMPLE
         Uninstall-TerminalColorsTheme
@@ -241,7 +239,7 @@ function Uninstall-TerminalColorsTheme {
             }
             $newText = $newText.Remove($start, $end - $start + 1)
             $masked = Get-TcMaskedJson -Text $newText
-            $changes += 'theme retire'
+            $changes += 'theme removed'
         }
     }
 
@@ -250,20 +248,19 @@ function Uninstall-TerminalColorsTheme {
     $m = [regex]::Match($masked, '"theme"\s*:\s*(?:"[^"]*"|\{[^{}]*\})')
     if ($m.Success -and $newText.Substring($m.Index, $m.Length) -match '"TerminalColors"') {
         $newText = $newText.Remove($m.Index, $m.Length).Insert($m.Index, '"theme": ' + $restore)
-        $changes += "theme restaure ($restore)"
+        $changes += "theme restored ($restore)"
     }
 
     if ($changes.Count -eq 0) {
-        Write-Warning 'TerminalColors : le theme n''etait pas installe.'
+        Write-Warning 'TerminalColors: the theme was not installed.'
         return
     }
 
     if ($null -eq (ConvertFrom-TcJsonText -Text $newText)) {
-        throw 'TerminalColors : la modification aurait produit un JSON invalide. Aucun changement ecrit.'
+        throw 'TerminalColors: the change would have produced invalid JSON. Nothing was written.'
     }
 
-    if ($PSCmdlet.ShouldProcess($SettingsPath, "Retirer le theme TerminalColors ($($changes -join ', '))")) {
+    if ($PSCmdlet.ShouldProcess($SettingsPath, "Remove the TerminalColors theme ($($changes -join ', '))")) {
         [void](Save-TcWtSettings -Path $SettingsPath -Text $newText -NoBackup:$NoBackup)
     }
 }
-

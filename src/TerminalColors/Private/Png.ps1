@@ -1,12 +1,12 @@
-# Generation d'une image PNG unie, sans dependance externe.
+# Generation of a solid PNG image, with no external dependency.
 #
-# Le calque opaque (Install-TerminalColorsBackdrop) a besoin d'une image d'une
-# seule couleur a poser sur le volet. System.Drawing ferait l'affaire en 5.1
-# mais n'est pas garanti sur PowerShell 7 (assembly Windows-only, absente de
-# certaines installations), donc on encode le PNG a la main.
+# The opaque backdrop (Install-TerminalColorsBackdrop) needs a single-colour image
+# to lay over the pane. System.Drawing would do the job on 5.1 but is not
+# guaranteed on PowerShell 7 (Windows-only assembly, absent from some
+# installations), so the PNG is encoded by hand.
 #
-# Le fichier produit est minuscule (moins de 100 octets) et parfaitement
-# deterministe : la meme couleur donne toujours les memes octets.
+# The resulting file is tiny (under 100 bytes) and perfectly deterministic: the
+# same colour always produces the same bytes.
 
 $script:TcCrcTable = $null
 $script:TcPngWidth = 2
@@ -15,7 +15,7 @@ $script:TcPngHeight = 2
 function Get-TcCrcTable {
     <#
         .SYNOPSIS
-        Table CRC-32 (polynome 0xEDB88320), calculee une seule fois.
+        CRC-32 table (polynomial 0xEDB88320), computed only once.
     #>
     [CmdletBinding()]
     param()
@@ -27,8 +27,8 @@ function Get-TcCrcTable {
         $c = [int64]$n
         for ($k = 0; $k -lt 8; $k++) {
             if ($c -band 1) {
-                # 3988292384 = 0xEDB88320 ; le litteral hexa serait vu comme un
-                # Int32 negatif par PowerShell.
+                # 3988292384 = 0xEDB88320; PowerShell would read the hex literal as
+                # a negative Int32.
                 $c = 3988292384 -bxor ($c -shr 1)
             } else {
                 $c = $c -shr 1
@@ -57,7 +57,7 @@ function Get-TcCrc32 {
 function Get-TcAdler32 {
     <#
         .SYNOPSIS
-        Somme de controle Adler-32, exigee en fin de flux zlib.
+        Adler-32 checksum, required at the end of a zlib stream.
     #>
     [CmdletBinding()]
     param([byte[]] $Bytes)
@@ -74,7 +74,7 @@ function Get-TcAdler32 {
 function ConvertTo-TcUInt32Bytes {
     <#
         .SYNOPSIS
-        Entier 32 bits en gros-boutien, comme l'exige le format PNG.
+        32-bit big-endian integer, as the PNG format requires.
     #>
     [CmdletBinding()]
     param([int64] $Value)
@@ -90,7 +90,7 @@ function ConvertTo-TcUInt32Bytes {
 function New-TcPngChunk {
     <#
         .SYNOPSIS
-        Assemble un bloc PNG : longueur, type, donnees, CRC du type+donnees.
+        Assembles a PNG chunk: length, type, data, CRC of type+data.
     #>
     [CmdletBinding()]
     param(
@@ -100,8 +100,8 @@ function New-TcPngChunk {
 
     if ($null -eq $Data) { $Data = [byte[]] @() }
 
-    # Les transtypages [byte[]] sont indispensables : une valeur renvoyee par une
-    # fonction PowerShell revient en System.Object[], que AddRange refuse.
+    # The [byte[]] casts are essential: a value returned by a PowerShell function
+    # comes back as System.Object[], which AddRange refuses.
     $body = New-Object 'System.Collections.Generic.List[byte]'
     $body.AddRange([byte[]][System.Text.Encoding]::ASCII.GetBytes($Type))
     if ($Data.Length -gt 0) { $body.AddRange([byte[]]$Data) }
@@ -117,24 +117,24 @@ function New-TcPngChunk {
 function New-TcSolidPngBytes {
     <#
         .SYNOPSIS
-        Octets d'un PNG uni de la couleur demandee (truecolor 8 bits).
+        Bytes of a solid PNG in the requested colour (8-bit truecolor).
 
         .DESCRIPTION
-        Le flux zlib du bloc IDAT utilise un bloc [stored] (non compresse) :
-        pour une poignee d'octets c'est aussi compact qu'un vrai deflate, et
-        cela evite de dependre de System.IO.Compression.
+        The zlib stream of the IDAT chunk uses a [stored] (uncompressed) block: for
+        a handful of bytes that is as compact as a real deflate, and it avoids
+        depending on System.IO.Compression.
     #>
     [CmdletBinding()]
     [OutputType([byte[]])]
     param([hashtable] $Rgb)
 
-    if ($null -eq $Rgb) { throw 'TerminalColors : couleur manquante pour la generation du PNG.' }
+    if ($null -eq $Rgb) { throw 'TerminalColors: missing colour for PNG generation.' }
 
     $r = [byte]([int]$Rgb.R)
     $g = [byte]([int]$Rgb.G)
     $b = [byte]([int]$Rgb.B)
 
-    # --- Donnees brutes : un octet de filtre (0 = aucun) par ligne ----------
+    # --- Raw data: one filter byte (0 = none) per row -----------------------
     $raw = New-Object 'System.Collections.Generic.List[byte]'
     for ($y = 0; $y -lt $script:TcPngHeight; $y++) {
         $raw.Add([byte]0)
@@ -144,10 +144,10 @@ function New-TcSolidPngBytes {
     }
     $rawBytes = $raw.ToArray()
 
-    # --- Flux zlib : en-tete, bloc non compresse, Adler-32 ------------------
+    # --- zlib stream: header, uncompressed block, Adler-32 ------------------
     $zlib = New-Object 'System.Collections.Generic.List[byte]'
-    $zlib.Add([byte]0x78)   # CM = deflate, CINFO = fenetre 32 Ko
-    $zlib.Add([byte]0x01)   # pas de dictionnaire ; (0x7801 % 31) == 0
+    $zlib.Add([byte]0x78)   # CM = deflate, CINFO = 32 KB window
+    $zlib.Add([byte]0x01)   # no dictionary; (0x7801 % 31) == 0
     $zlib.Add([byte]0x01)   # BFINAL = 1, BTYPE = 00 (stored)
     $len = $rawBytes.Length
     $zlib.Add([byte]($len -band 255))
@@ -161,11 +161,11 @@ function New-TcSolidPngBytes {
     $ihdr = New-Object 'System.Collections.Generic.List[byte]'
     $ihdr.AddRange([byte[]](ConvertTo-TcUInt32Bytes -Value ([int64]$script:TcPngWidth)))
     $ihdr.AddRange([byte[]](ConvertTo-TcUInt32Bytes -Value ([int64]$script:TcPngHeight)))
-    $ihdr.Add([byte]8)   # 8 bits par canal
-    $ihdr.Add([byte]2)   # type 2 : RVB sans alpha
-    $ihdr.Add([byte]0)   # compression deflate
-    $ihdr.Add([byte]0)   # filtrage standard
-    $ihdr.Add([byte]0)   # non entrelace
+    $ihdr.Add([byte]8)   # 8 bits per channel
+    $ihdr.Add([byte]2)   # type 2: RGB without alpha
+    $ihdr.Add([byte]0)   # deflate compression
+    $ihdr.Add([byte]0)   # standard filtering
+    $ihdr.Add([byte]0)   # not interlaced
 
     $png = New-Object 'System.Collections.Generic.List[byte]'
     $png.AddRange([byte[]] @(0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A))
@@ -178,7 +178,7 @@ function New-TcSolidPngBytes {
 function Write-TcSolidPng {
     <#
         .SYNOPSIS
-        Ecrit un PNG uni a l'emplacement demande, en creant le dossier au besoin.
+        Writes a solid PNG to the requested location, creating the folder if needed.
     #>
     [CmdletBinding()]
     param(

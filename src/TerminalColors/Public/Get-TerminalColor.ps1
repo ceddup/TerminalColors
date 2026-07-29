@@ -1,26 +1,27 @@
 function Get-TerminalColor {
     <#
         .SYNOPSIS
-        Indique quelle couleur s'applique a un dossier, et d'ou elle vient.
+        Reports which colour applies to a folder, and where it comes from.
 
         .DESCRIPTION
-        Sert de commande de diagnostic : elle montre le fichier retenu
-        (.terminalcolors.json, Peacock, Solution Colors ou depot Git), la
-        couleur, et le fond teinte qui serait reellement applique au terminal.
+        A diagnostics command: it shows the file that was picked
+        (.terminalcolors.json, Peacock, Solution Colors or Git repository), the
+        colour, and the tinted background that would actually be applied to the
+        terminal.
 
         .PARAMETER Path
-        Dossier a evaluer. Accepte l'entree de pipeline, ce qui permet de
-        dresser la carte des couleurs de tous vos depots.
+        Folder to evaluate. Accepts pipeline input, which lets you map the colours
+        of all your repositories at once.
 
         .PARAMETER NoAutoGitColors
-        Ignore la couleur automatique deduite du nom du depot Git.
+        Ignores the automatic colour derived from a Git repository name.
 
         .EXAMPLE
         Get-TerminalColor
 
         .EXAMPLE
         Get-ChildItem C:\Repos -Directory | Get-TerminalColor | Format-Table Name, Color, Source
-        Affiche la couleur attribuee a chacun de vos depots.
+        Shows the colour assigned to each of your repositories.
     #>
     [CmdletBinding()]
     [OutputType([pscustomobject])]
@@ -89,12 +90,12 @@ function Get-TerminalColor {
 function Clear-TerminalColorCache {
     <#
         .SYNOPSIS
-        Vide le cache de resolution des couleurs et relit les reglages de
-        Windows Terminal.
+        Empties the colour resolution cache and re-reads the Windows Terminal
+        settings.
 
         .DESCRIPTION
-        Utile apres avoir modifie a la main un fichier de configuration ou la
-        palette de votre profil Windows Terminal.
+        Useful after editing a configuration file by hand, or the colour scheme of
+        your Windows Terminal profile.
 
         .EXAMPLE
         Clear-TerminalColorCache; Update-TerminalColor -Force

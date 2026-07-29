@@ -1,7 +1,7 @@
 version: 2
 updates:
-  # Le projet n'a aucune dependance a l'execution : seules les actions du workflow
-  # sont a suivre, pour ne pas laisser une action epinglee a une version obsolete.
+  # The project has no runtime dependency: only the workflow actions need
+  # watching, so that no action is left pinned to an outdated version.
   - package-ecosystem: github-actions
     directory: /
     schedule:

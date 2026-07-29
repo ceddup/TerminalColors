@@ -1,59 +1,59 @@
-# Reglages PSScriptAnalyzer du depot.
+# Repository PSScriptAnalyzer settings.
 #
 #     Invoke-ScriptAnalyzer -Path . -Recurse -Settings .\PSScriptAnalyzerSettings.psd1
 #
-# Chaque exclusion est un choix de conception assume, pas un contournement : la
-# raison est ecrite a cote. Si vous devez en ajouter une, expliquez pourquoi ici
-# plutot que de la masquer en silence.
+# Every exclusion is a deliberate design decision, not a workaround: the reason is
+# written next to it. If you need to add one, explain why here rather than hiding
+# it silently.
 
 @{
-    # Les regles de severite Information sont du style (parametres positionnels,
-    # OutputType) : utiles a la relecture, pas assez pour bloquer une CI.
+    # Information-severity rules are stylistic (positional parameters,
+    # OutputType): useful when reviewing, not enough to block a CI run.
     Severity = @('Error', 'Warning')
 
     ExcludeRules = @(
-        # Le docteur et l'installateur ecrivent pour un humain, en couleur, dans
-        # une console. C'est exactement l'usage legitime de Write-Host : leur
-        # sortie n'est pas une valeur de retour a rediriger.
+        # The doctor and the installer write for a human, in colour, in a console.
+        # That is exactly the legitimate use of Write-Host: their output is not a
+        # return value meant to be redirected.
         'PSAvoidUsingWriteHost'
 
-        # [Colors] est le nom du produit. Renommer Enable-TerminalColors en
-        # Enable-TerminalColor casserait l'API publique pour satisfaire une
-        # regle de grammaire.
+        # [Colors] is the product name. Renaming Enable-TerminalColors to
+        # Enable-TerminalColor would break the public API to satisfy a grammar
+        # rule.
         'PSUseSingularNouns'
 
-        # $global:TerminalColorsOriginalPrompt et la lecture de $global:PWD sont
-        # deliberement globales : le hook d'invite s'execute dans la portee
-        # globale, et un module possede sa propre portee de session - une
-        # variable de module y serait invisible.
+        # $global:TerminalColorsOriginalPrompt and reading $global:PWD are
+        # deliberately global: the prompt hook runs in the global scope, and a
+        # module owns its own session scope - a module variable would be invisible
+        # there.
         'PSAvoidGlobalVars'
 
-        # L'etat modifie par Set-TcTerminalBackground, Update-TerminalColor ou
-        # Set-TcWindowBorderColor est l'apparence de la session en cours, pas le
-        # systeme : -WhatIf n'y a aucun sens, et le proposer sur le hook d'invite
-        # serait nuisible. Les commandes qui ecrivent reellement sur le disque
-        # (Set-FolderColor, Remove-FolderColor, les Install-/Uninstall-)
-        # implementent toutes SupportsShouldProcess.
+        # The state changed by Set-TcTerminalBackground, Update-TerminalColor or
+        # Set-TcWindowBorderColor is the appearance of the current session, not the
+        # system: -WhatIf makes no sense there, and offering it on the prompt hook
+        # would be harmful. The commands that really write to disk
+        # (Set-FolderColor, Remove-FolderColor, the Install-/Uninstall- ones) all
+        # implement SupportsShouldProcess.
         'PSUseShouldProcessForStateChangingFunctions'
 
-        # Silence delibere et documente sur quatre chemins qui ne doivent jamais
-        # lever : le hook d'invite, le OnRemove du module, la lecture de
-        # $global:PWD, et la sonde de date de modification appelee a chaque
-        # invite. Y ajouter un Write-Verbose polluerait un chemin chaud.
+        # Deliberate, documented silence on four paths that must never throw: the
+        # prompt hook, the module's OnRemove, reading $global:PWD, and the
+        # modification-time probe called on every prompt. Adding a Write-Verbose
+        # there would pollute a hot path.
         'PSAvoidUsingEmptyCatchBlock'
 
-        # Get-WmiObject n'est utilise qu'en repli, quand Get-CimInstance echoue -
-        # ce qui arrive sur des postes ou le service WinRM/CIM est bride.
+        # Get-WmiObject is only used as a fallback, when Get-CimInstance fails -
+        # which happens on machines where the WinRM/CIM service is restricted.
         'PSAvoidUsingWMICmdlet'
 
-        # install.ps1 transmet la chaine -EnableArguments fournie par
-        # l'utilisateur lui-meme, qui execute deja le script : il n'y a pas de
-        # frontiere de confiance a franchir ici.
+        # install.ps1 forwards the -EnableArguments string supplied by the user
+        # themselves, who is already running the script: there is no trust
+        # boundary to cross here.
         'PSAvoidUsingInvokeExpression'
 
-        # Faux positifs : la regle ne voit pas les parametres utilises dans un
-        # bloc de script imbrique (& $m { param($x) ... }), ce dont la suite de
-        # tests se sert partout.
+        # False positives: the rule does not see parameters used inside a nested
+        # script block (& $m { param($x) ... }), which the test suite relies on
+        # throughout.
         'PSReviewUnusedParameter'
     )
 }

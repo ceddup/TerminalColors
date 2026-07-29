@@ -9,12 +9,12 @@ function Get-TcProfileBlock {
 
     return @(
         $script:TcProfileBeginMarker
-        '# Coloration automatique du terminal selon le dossier courant.'
-        '# Bloc gere par TerminalColors : Install-TerminalColorsProfile le remplace,'
-        '# Uninstall-TerminalColorsProfile le supprime. Vous pouvez aussi le modifier'
-        '# a la main (par exemple pour changer -Tint).'
-        '# Le test sur WT_SESSION evite tout cout de demarrage hors Windows Terminal ;'
-        '# retirez-le pour colorer aussi d''autres terminaux compatibles.'
+        '# Automatic terminal colouring based on the current directory.'
+        '# Block managed by TerminalColors: Install-TerminalColorsProfile replaces it,'
+        '# Uninstall-TerminalColorsProfile removes it. You can also edit it by hand'
+        '# (to change -Tint, for instance).'
+        '# The WT_SESSION test avoids any startup cost outside Windows Terminal;'
+        '# remove it to colour other compatible terminals as well.'
         'if ($env:WT_SESSION) {'
         '    Import-Module TerminalColors -ErrorAction SilentlyContinue'
         "    if (Get-Module TerminalColors) { $call }"
@@ -26,25 +26,24 @@ function Get-TcProfileBlock {
 function Install-TerminalColorsProfile {
     <#
         .SYNOPSIS
-        Ajoute (ou met a jour) l'activation de TerminalColors dans votre profil
-        PowerShell, pour que la coloration soit active a chaque ouverture de
-        terminal.
+        Adds (or updates) the TerminalColors activation in your PowerShell profile,
+        so the colouring is active every time you open a terminal.
 
         .DESCRIPTION
-        Le bloc insere est delimite par des marqueurs, ce qui permet de le
-        remettre a jour ou de le retirer proprement sans toucher au reste de
-        votre profil. Une sauvegarde du profil est creee avant modification.
+        The inserted block is delimited by markers, which makes it possible to
+        update or remove it cleanly without touching the rest of your profile. A
+        backup of the profile is taken before it is modified.
 
         .PARAMETER ProfilePath
-        Profil a modifier. Par defaut, le profil [tous les hotes] de
-        l'utilisateur courant ($PROFILE.CurrentUserAllHosts).
+        Profile to modify. Defaults to the current user's [all hosts] profile
+        ($PROFILE.CurrentUserAllHosts).
 
         .PARAMETER EnableArguments
-        Arguments a passer a Enable-TerminalColors dans le profil.
-        Exemple : '-Tint 0.45 -NoWindowBorder'
+        Arguments to pass to Enable-TerminalColors in the profile.
+        Example: '-Tint 0.45 -NoWindowBorder'
 
         .PARAMETER NoBackup
-        N'ecrit pas de copie de sauvegarde.
+        Does not write a backup copy.
 
         .EXAMPLE
         Install-TerminalColorsProfile
@@ -69,11 +68,11 @@ function Install-TerminalColorsProfile {
     }
 
     $pattern = '(?s)' + [regex]::Escape($script:TcProfileBeginMarker) + '.*?' + [regex]::Escape($script:TcProfileEndMarker)
-    $action = 'Ajouter'
+    $action = 'Add'
 
     if ([regex]::IsMatch($existing, $pattern)) {
         $newContent = [regex]::Replace($existing, $pattern, [System.Text.RegularExpressions.MatchEvaluator] { param($m) $block })
-        $action = 'Mettre a jour'
+        $action = 'Update'
     } elseif ([string]::IsNullOrWhiteSpace($existing)) {
         $newContent = $block + [Environment]::NewLine
     } else {
@@ -83,11 +82,11 @@ function Install-TerminalColorsProfile {
     }
 
     if ($newContent -eq $existing) {
-        return [pscustomobject]@{ ProfilePath = $ProfilePath; Changed = $false; Action = 'Aucun changement'; Backup = $null }
+        return [pscustomobject]@{ ProfilePath = $ProfilePath; Changed = $false; Action = 'No change'; Backup = $null }
     }
 
     $backupPath = $null
-    if ($PSCmdlet.ShouldProcess($ProfilePath, "$action le bloc TerminalColors")) {
+    if ($PSCmdlet.ShouldProcess($ProfilePath, "$action the TerminalColors block")) {
         $directory = Split-Path $ProfilePath -Parent
         if ($directory -and -not (Test-Path -LiteralPath $directory)) {
             New-Item -ItemType Directory -Path $directory -Force | Out-Null
@@ -96,8 +95,9 @@ function Install-TerminalColorsProfile {
             $backupPath = '{0}.terminalcolors-backup-{1}' -f $ProfilePath, (Get-Date -Format 'yyyyMMdd-HHmmss')
             [System.IO.File]::Copy($ProfilePath, $backupPath, $true)
         }
-        # UTF-8 avec BOM : Windows PowerShell 5.1 lit les profils dans la page de
-        # code ANSI en l'absence de BOM, ce qui casserait les accents.
+        # UTF-8 with BOM: without one, Windows PowerShell 5.1 reads profiles in the
+        # ANSI code page, which would corrupt any non-ASCII text the user has put
+        # in there.
         $encoding = New-Object System.Text.UTF8Encoding($true)
         [System.IO.File]::WriteAllText($ProfilePath, $newContent, $encoding)
     }
@@ -108,10 +108,10 @@ function Install-TerminalColorsProfile {
 function Uninstall-TerminalColorsProfile {
     <#
         .SYNOPSIS
-        Retire le bloc TerminalColors de votre profil PowerShell.
+        Removes the TerminalColors block from your PowerShell profile.
 
         .PARAMETER ProfilePath
-        Profil a modifier. Par defaut, $PROFILE.CurrentUserAllHosts.
+        Profile to modify. Defaults to $PROFILE.CurrentUserAllHosts.
 
         .EXAMPLE
         Uninstall-TerminalColorsProfile
@@ -121,19 +121,19 @@ function Uninstall-TerminalColorsProfile {
 
     if (-not $ProfilePath) { $ProfilePath = $PROFILE.CurrentUserAllHosts }
     if (-not [System.IO.File]::Exists($ProfilePath)) {
-        Write-Warning "TerminalColors : profil introuvable [$ProfilePath]."
+        Write-Warning "TerminalColors: profile not found [$ProfilePath]."
         return
     }
 
     $existing = [System.IO.File]::ReadAllText($ProfilePath)
     $pattern = '(?s)\s*' + [regex]::Escape($script:TcProfileBeginMarker) + '.*?' + [regex]::Escape($script:TcProfileEndMarker)
     if (-not [regex]::IsMatch($existing, $pattern)) {
-        Write-Warning 'TerminalColors : aucun bloc TerminalColors dans ce profil.'
+        Write-Warning 'TerminalColors: no TerminalColors block in this profile.'
         return
     }
 
     $newContent = [regex]::Replace($existing, $pattern, '')
-    if ($PSCmdlet.ShouldProcess($ProfilePath, 'Retirer le bloc TerminalColors')) {
+    if ($PSCmdlet.ShouldProcess($ProfilePath, 'Remove the TerminalColors block')) {
         $encoding = New-Object System.Text.UTF8Encoding($true)
         [System.IO.File]::WriteAllText($ProfilePath, $newContent, $encoding)
     }
@@ -142,10 +142,11 @@ function Uninstall-TerminalColorsProfile {
 function Test-TerminalColorsProfile {
     <#
         .SYNOPSIS
-        Indique si le bloc TerminalColors est present dans un profil PowerShell.
+        Indicates whether the TerminalColors block is present in a PowerShell
+        profile.
 
         .PARAMETER ProfilePath
-        Profil a inspecter. Par defaut, $PROFILE.CurrentUserAllHosts.
+        Profile to inspect. Defaults to $PROFILE.CurrentUserAllHosts.
     #>
     [CmdletBinding()]
     [OutputType([bool])]

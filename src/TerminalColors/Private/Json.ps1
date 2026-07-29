@@ -1,12 +1,12 @@
-# Lecture de JSON tolerant (JSONC) : les fichiers settings.json de VS Code et de
-# Windows Terminal contiennent des commentaires et parfois des virgules finales.
+# Tolerant JSON (JSONC) reading: the settings.json files of VS Code and Windows
+# Terminal contain comments and sometimes trailing commas.
 
 function Remove-TcJsonComments {
     <#
         .SYNOPSIS
-        Remplace les commentaires // et /* */ par des espaces, en preservant les
-        positions (indispensable pour l'edition chirurgicale de settings.json) et
-        en ignorant ce qui se trouve dans des chaines.
+        Replaces // and /* */ comments with spaces, preserving positions
+        (essential for the surgical editing of settings.json) and ignoring
+        anything inside strings.
     #>
     [CmdletBinding()]
     param([string] $Text)
@@ -67,7 +67,7 @@ function Remove-TcJsonComments {
 function ConvertFrom-TcJsonText {
     <#
         .SYNOPSIS
-        Analyse du JSONC. Renvoie $null en cas d'echec (jamais d'exception).
+        Parses JSONC. Returns $null on failure (never throws).
     #>
     [CmdletBinding()]
     param([string] $Text)
@@ -75,11 +75,11 @@ function ConvertFrom-TcJsonText {
     if ([string]::IsNullOrWhiteSpace($Text)) { return $null }
     try {
         $clean = Remove-TcJsonComments -Text $Text
-        # Virgules finales
+        # Trailing commas
         $clean = [regex]::Replace($clean, ',(\s*[}\]])', '$1')
         return $clean | ConvertFrom-Json
     } catch {
-        Write-Verbose "TerminalColors: JSON illisible ($($_.Exception.Message))"
+        Write-Verbose "TerminalColors: unreadable JSON ($($_.Exception.Message))"
         return $null
     }
 }
@@ -91,7 +91,7 @@ function ConvertFrom-TcJsonFile {
     try {
         $raw = [System.IO.File]::ReadAllText($Path)
     } catch {
-        Write-Verbose "TerminalColors: lecture impossible de [$Path] ($($_.Exception.Message))"
+        Write-Verbose "TerminalColors: could not read [$Path] ($($_.Exception.Message))"
         return $null
     }
     return ConvertFrom-TcJsonText -Text $raw
@@ -100,13 +100,13 @@ function ConvertFrom-TcJsonFile {
 function Get-TcJsonProperty {
     <#
         .SYNOPSIS
-        Lit une propriete dont le nom contient des points ([peacock.color])
-        sur un objet issu de ConvertFrom-Json, sans lever d'erreur.
+        Reads a property whose name contains dots ([peacock.color]) from an object
+        produced by ConvertFrom-Json, without raising an error.
     #>
     [CmdletBinding()]
     param(
-        # Volontairement non obligatoire : les appelants enchainent les lectures
-        # sur des objets qui peuvent etre absents.
+        # Deliberately not mandatory: callers chain reads over objects that may be
+        # absent.
         $InputObject,
         [Parameter(Mandatory)] [string] $Name
     )

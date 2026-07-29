@@ -1,13 +1,13 @@
-# Resolution de la couleur associee a un dossier.
+# Resolution of the colour associated with a folder.
 #
-# On remonte l'arborescence depuis le dossier courant. Le premier dossier
-# ancetre qui fournit une couleur gagne (semantique [le plus proche gagne],
-# comme .editorconfig). Dans un meme dossier, l'ordre de priorite est :
+# The tree is walked up from the current folder. The first ancestor folder that
+# provides a colour wins ([nearest wins] semantics, like .editorconfig). Within a
+# single folder, the priority order is:
 #
-#   1. .terminalcolors.json   (configuration propre a ce module)
-#   2. .vscode/settings.json  (extension Peacock de VS Code)
-#   3. .vs/**/color.txt       (extension Solution Colors de Visual Studio)
-#   4. .git                   (couleur automatique deduite du nom du depot)
+#   1. .terminalcolors.json   (this module's own configuration)
+#   2. .vscode/settings.json  (VS Code's Peacock extension)
+#   3. .vs/**/color.txt       (Visual Studio's Solution Colors extension)
+#   4. .git                   (automatic colour derived from the repository name)
 
 $script:TcConfigNames = @('.terminalcolors.json', 'terminalcolors.json', '.terminalcolors')
 $script:TcResolveCache = @{}
@@ -43,19 +43,19 @@ function New-TcColorInfo {
 function Resolve-TcConfigFile {
     <#
         .SYNOPSIS
-        Lit un fichier .terminalcolors.json. Gere [auto], les surcharges par
-        branche et applyToSubfolders.
+        Reads a .terminalcolors.json file. Handles [auto], per-branch overrides and
+        applyToSubfolders.
     #>
     [CmdletBinding()]
     param([string] $Directory, [string] $Path, [string] $LeafDirectory)
 
     $json = ConvertFrom-TcJsonFile -Path $Path
     if ($null -eq $json) {
-        Write-Verbose "TerminalColors: [$Path] ignore (JSON invalide)."
+        Write-Verbose "TerminalColors: [$Path] ignored (invalid JSON)."
         return $null
     }
 
-    # Portee : par defaut la couleur s'applique aux sous-dossiers.
+    # Scope: by default the colour applies to subfolders.
     $applyToSub = Get-TcJsonProperty -InputObject $json -Name 'applyToSubfolders'
     if ($applyToSub -is [bool] -and -not $applyToSub) {
         if ($LeafDirectory -ne $Directory) { return $null }
@@ -63,7 +63,7 @@ function Resolve-TcConfigFile {
 
     $colorText = Get-TcJsonProperty -InputObject $json -Name 'color'
 
-    # Surcharge eventuelle par branche Git
+    # Possible per-Git-branch override
     $branches = Get-TcJsonProperty -InputObject $json -Name 'branches'
     if ($branches) {
         $branch = Get-TcGitBranch -Path $Directory
@@ -89,7 +89,7 @@ function Resolve-TcConfigFile {
         $rgb = ConvertFrom-TcColor -Value ([string]$colorText)
     }
     if ($null -eq $rgb) {
-        Write-Verbose "TerminalColors: couleur [$colorText] non reconnue dans [$Path]."
+        Write-Verbose "TerminalColors: colour [$colorText] not recognised in [$Path]."
         return $null
     }
 
@@ -107,7 +107,7 @@ function Resolve-TcConfigFile {
 function Resolve-TcPeacock {
     <#
         .SYNOPSIS
-        Lit la couleur de l'extension Peacock dans .vscode/settings.json.
+        Reads the Peacock extension's colour from .vscode/settings.json.
     #>
     [CmdletBinding()]
     param([string] $Directory, [string] $Path)
@@ -118,8 +118,8 @@ function Resolve-TcPeacock {
     $color = Get-TcJsonProperty -InputObject $json -Name 'peacock.color'
 
     if ([string]::IsNullOrWhiteSpace([string]$color)) {
-        # Peacock n'ecrit peacock.color que depuis une version recente : on
-        # retombe sur les personnalisations qu'il applique de toute facon.
+        # Peacock has only been writing peacock.color since a recent version: fall
+        # back on the customisations it applies anyway.
         $custom = Get-TcJsonProperty -InputObject $json -Name 'workbench.colorCustomizations'
         foreach ($key in @('titleBar.activeBackground', 'activityBar.background', 'statusBar.background')) {
             $candidate = Get-TcJsonProperty -InputObject $custom -Name $key
@@ -139,9 +139,9 @@ function Resolve-TcPeacock {
 function Resolve-TcSolutionColors {
     <#
         .SYNOPSIS
-        Lit la couleur de l'extension Visual Studio [Solution Colors].
-        Format du fichier .vs\<Solution>\color.txt : une ligne [branche:Couleur]
-        par branche (l'ancien format ne contient que [Couleur]).
+        Reads the colour of the Visual Studio [Solution Colors] extension.
+        Format of .vs\<Solution>\color.txt: one [branch:Colour] line per branch
+        (the legacy format contains only [Colour]).
     #>
     [CmdletBinding()]
     param([string] $Directory, [string] $Path)
@@ -174,9 +174,9 @@ function Resolve-TcSolutionColors {
     if (-not $chosen) { $chosen = $entries[0] }
 
     $rgb = ConvertFrom-TcColor -Value $chosen.Color
-    if ($null -eq $rgb) { return $null }   # couvre aussi [None]
+    if ($null -eq $rgb) { return $null }   # also covers [None]
 
-    # Le nom du dossier .vs\<Solution> est plus parlant que celui du repertoire.
+    # The .vs\<Solution> folder name is more meaningful than the directory's.
     $solutionName = Split-Path (Split-Path $Path -Parent) -Leaf
     if ($solutionName -eq '.vs') { $solutionName = Split-Path $Directory -Leaf }
 
@@ -198,8 +198,8 @@ function Get-TcSolutionColorFile {
         $found = [System.IO.Directory]::GetFiles($vs, 'color.txt', [System.IO.SearchOption]::AllDirectories)
     } catch { return $null }
 
-    # @() est indispensable : sans lui, un pipeline a un seul element renvoie une
-    # chaine, et [0] en extrairait le premier caractere.
+    # The @() is essential: without it, a single-element pipeline returns a string,
+    # and [0] would extract its first character.
     $sorted = @($found | Sort-Object)
     if ($sorted.Count -gt 0) { return $sorted[0] }
     return $null
@@ -222,7 +222,7 @@ function Get-TcGitRootFrom {
 function Resolve-TcDirectory {
     <#
         .SYNOPSIS
-        Cherche une couleur declaree dans un dossier precis (sans remonter).
+        Looks for a colour declared in one specific folder (without walking up).
     #>
     [CmdletBinding()]
     param(
@@ -264,8 +264,8 @@ function Resolve-TcDirectory {
 function Resolve-TcColor {
     <#
         .SYNOPSIS
-        Resout la couleur applicable a un chemin en remontant l'arborescence.
-        Renvoie $null si aucun ancetre ne definit de couleur.
+        Resolves the colour applicable to a path by walking up the tree. Returns
+        $null when no ancestor defines a colour.
     #>
     [CmdletBinding()]
     param(
@@ -282,8 +282,8 @@ function Resolve-TcColor {
     if (-not $NoCache -and $script:TcResolveCache.ContainsKey($cacheKey)) {
         $entry = $script:TcResolveCache[$cacheKey]
         if ($null -eq $entry.Info) {
-            # Resultat negatif : courte duree de vie, pour voir rapidement un
-            # fichier de configuration qui vient d'etre cree.
+            # Negative result: short lifetime, so a configuration file that has just
+            # been created is picked up quickly.
             if (((Get-Date) - $entry.Stamp).TotalSeconds -lt $script:TcNegativeCacheSeconds) { return $null }
         } else {
             $stamp = Get-TcFileStamp -Path $entry.Info.SourcePath

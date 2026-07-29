@@ -1,4 +1,4 @@
-# Etat et options du module pour la session courante.
+# Module state and options for the current session.
 
 $script:TcEnabled = $false
 $script:TcLastPath = $null
@@ -9,14 +9,14 @@ $script:TcOptions = $null
 
 function New-TcDefaultOptions {
     return @{
-        # Intensite de la teinte appliquee au fond du terminal (0 = aucune,
-        # 1 = couleur pure). Une valeur faible garde le texte parfaitement
-        # lisible tout en coloriant nettement l'onglet et la barre de titre.
+        # Strength of the tint applied to the terminal background (0 = none,
+        # 1 = pure colour). A low value keeps the text perfectly readable while
+        # still clearly colouring the tab and the title bar.
         Tint           = 0.30
-        # PureColor envoie la couleur du projet sans dilution : l'onglet, la
-        # barre de titre et la bordure deviennent francs. A n'activer qu'avec le
-        # calque opaque installe (Install-TerminalColorsBackdrop), sans quoi
-        # c'est le fond du volet qui prend la couleur pure.
+        # PureColor sends the project colour undiluted: the tab, the title bar and
+        # the border become vivid. Only enable it with the opaque backdrop
+        # installed (Install-TerminalColorsBackdrop), otherwise it is the pane
+        # background that takes the pure colour.
         PureColor      = $false
         SetTitle       = $true
         TitleFormat    = '{icon} {name}'
@@ -26,9 +26,9 @@ function New-TcDefaultOptions {
         AutoGitColors  = $true
         BaseBackground = $null
         ExplicitReset  = $false
-        # Par defaut la couleur n'est reemise qu'au changement de dossier : zero
-        # ecriture inutile. AlwaysReapply la reemet a chaque invite, au cas ou un
-        # programme aurait reinitialise le fond du terminal entre-temps.
+        # By default the colour is only re-emitted when the directory changes: zero
+        # pointless writes. AlwaysReapply re-emits it on every prompt, in case a
+        # program has reset the terminal background in the meantime.
         AlwaysReapply  = $false
     }
 }
@@ -41,8 +41,8 @@ function Get-TcOptions {
 function Get-TcCurrentPath {
     <#
         .SYNOPSIS
-        Dossier courant de l'utilisateur. Un module possede son propre etat de
-        session : on lit donc explicitement l'emplacement global.
+        The user's current directory. A module has its own session state, so the
+        global location is read explicitly.
     #>
     [CmdletBinding()]
     param()

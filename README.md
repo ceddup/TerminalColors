@@ -105,15 +105,7 @@ To see the map of your repositories:
 
 ```powershell
 Get-ChildItem C:\Repos -Directory | Get-TerminalColor | Format-Table Name, Color, Icon, Source
-```
 
-```
-Name             Color   Icon Source
-----             -----   ---- ------
-oseille          #215732 🟩   Peacock
-pastel           #61DAFB 🟦   Peacock
-superviseur_c2   #008080 🟩   SolutionColors
-ioda_v3          #1818D8 🟦   GitRepository
 ```
 
 `Get-TerminalColor` also reports the exact file it picked (`SourcePath`), which is handy
@@ -144,7 +136,7 @@ Every available key:
 ```json
 {
   "color": "#215732",
-  "name": "Oseille",
+  "name": "FooProject",
   "icon": "🟩",
   "tint": 0.45,
   "applyToSubfolders": true,
@@ -202,9 +194,6 @@ Other commands: `Disable-TerminalColors`, `Reset-TerminalColor`,
 `TerminalColorsTitleBar` and `TerminalColorsProfile`.
 
 Every command has full help: `Get-Help Enable-TerminalColors -Full`.
-
-> **Note** — comment-based help and source comments are in French; the repository
-> documentation is in English. See [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ---
 

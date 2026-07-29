@@ -1,20 +1,20 @@
-# TerminalColors pour bash / zsh (Git Bash, WSL, MSYS2)
+# TerminalColors for bash / zsh (Git Bash, WSL, MSYS2)
 #
-# Variante allegee du module PowerShell : meme resolution de couleur, memes
-# couleurs automatiques, mais sans coloration de la bordure de fenetre (qui
-# passe par une API Windows).
+# Lighter variant of the PowerShell module: same colour resolution, same
+# automatic colours, but without window border colouring (which goes through a
+# Windows API).
 #
-# Installation :
+# Installation:
 #     mkdir -p ~/.local/share/terminalcolors
 #     cp shell/terminalcolors.sh ~/.local/share/terminalcolors/
 #     echo 'source ~/.local/share/terminalcolors/terminalcolors.sh' >> ~/.bashrc
 #
-# Reglages (a definir avant le source) :
-#     TERMINALCOLORS_TINT=0.30        intensite de la teinte du fond (0 a 1)
-#     TERMINALCOLORS_BASE='#0C0C0C'   couleur de fond de reference
-#     TERMINALCOLORS_TITLE=1          mettre a jour le titre de l'onglet
-#     TERMINALCOLORS_ICONS=1          prefixer le titre d'un carre colore
-#     TERMINALCOLORS_AUTOGIT=1        couleur automatique pour tout depot Git
+# Settings (define these before sourcing):
+#     TERMINALCOLORS_TINT=0.30        background tint strength (0 to 1)
+#     TERMINALCOLORS_BASE='#0C0C0C'   reference background colour
+#     TERMINALCOLORS_TITLE=1          update the tab title
+#     TERMINALCOLORS_ICONS=1          prefix the title with a coloured square
+#     TERMINALCOLORS_AUTOGIT=1        automatic colour for any Git repository
 
 : "${TERMINALCOLORS_TINT:=0.30}"
 : "${TERMINALCOLORS_BASE:=#0C0C0C}"
@@ -22,7 +22,7 @@
 : "${TERMINALCOLORS_ICONS:=1}"
 : "${TERMINALCOLORS_AUTOGIT:=1}"
 
-# Traduction des noms de couleurs (dont les alias de Solution Colors).
+# Colour name translation (including the Solution Colors aliases).
 _tc_name_to_hex() {
     case "$(printf '%s' "$1" | tr '[:upper:]' '[:lower:]')" in
         burgundy)   printf '#FF6347' ;;
@@ -68,15 +68,15 @@ _tc_name_to_hex() {
 }
 
 _tc_normalize_color() {
-    # Sortie toujours en majuscules, comme le module PowerShell.
+    # Output always uppercase, like the PowerShell module.
     case "$1" in
         '#'*) printf '%s' "$1" | tr '[:lower:]' '[:upper:]' ;;
         *)    _tc_name_to_hex "$1" ;;
     esac
 }
 
-# Couleur stable derivee d'un nom : FNV-1a puis HSL, a l'identique du module
-# PowerShell, afin qu'un depot ait la meme couleur partout.
+# Stable colour derived from a name: FNV-1a then HSL, identical to the PowerShell
+# module, so a repository has the same colour everywhere.
 _tc_auto_color() {
     printf '%s' "$1" | awk '
         function fnv(s,   h, i) {
@@ -123,7 +123,7 @@ _tc_auto_color() {
         }
         function abs(v) { return v < 0 ? -v : v }
         BEGIN {
-            # Codes ASCII imprimables : suffisant pour des noms de depots.
+            # Printable ASCII codes: enough for repository names.
             for (i = 32; i < 127; i++) ORD[sprintf("%c", i)] = i
         }
         {
@@ -140,8 +140,8 @@ _tc_auto_color() {
 _tc_emoji() {
     printf '%s' "$1" | awk '
         function abs(v) { return v < 0 ? -v : v }
-        # strtonum() est propre a gawk : on decode a la main pour rester
-        # compatible avec mawk (Debian/Ubuntu par defaut).
+        # strtonum() is gawk-specific: decode by hand to stay compatible with
+        # mawk (the Debian/Ubuntu default).
         function hex2(s,   i, d, v) {
             v = 0
             for (i = 1; i <= length(s); i++) {
@@ -191,7 +191,7 @@ _tc_emoji() {
 }
 
 _tc_blend() {
-    # $1 = base, $2 = couleur, $3 = intensite
+    # $1 = base, $2 = colour, $3 = strength
     awk -v base="$1" -v col="$2" -v t="$3" '
         function hex2(s,   i, d, v) {
             v = 0
@@ -215,7 +215,7 @@ _tc_blend() {
 }
 
 _tc_json_value() {
-    # Extrait une valeur textuelle simple : $1 = fichier, $2 = nom de la cle
+    # Extracts a simple text value: $1 = file, $2 = key name
     sed -n "s/.*\"$2\"[[:space:]]*:[[:space:]]*\"\([^\"]*\)\".*/\1/p" "$1" 2>/dev/null | head -n 1
 }
 
@@ -229,8 +229,8 @@ _tc_git_branch() {
     fi
 }
 
-# Renvoie "couleur|libelle|source" pour le dossier passe en argument, en
-# remontant l'arborescence. Chaine vide si aucune couleur.
+# Returns "colour|label|source" for the folder passed as an argument, walking
+# up the tree. Empty string when there is no colour.
 _tc_resolve() {
     local dir="$1" leaf="$1" color name file branch line
 
@@ -262,7 +262,7 @@ _tc_resolve() {
         fi
 
         if [ -d "$dir/.vs" ]; then
-            # Glob plutot que find : aucune dependance externe, et plus rapide.
+            # A glob rather than find: no external dependency, and faster.
             file=''
             for candidate in "$dir"/.vs/color.txt "$dir"/.vs/*/color.txt; do
                 if [ -f "$candidate" ]; then file="$candidate"; break; fi
@@ -310,7 +310,7 @@ _tc_apply() {
     _TC_LAST_KEY="$key"
 
     if [ -z "$resolved" ]; then
-        printf '\033]111\a'                         # fond par defaut
+        printf '\033]111\a'                         # default background
         [ "$TERMINALCOLORS_TITLE" = "1" ] && printf '\033]0;%s\a' "${SHELL##*/}"
         return 0
     fi
@@ -328,7 +328,7 @@ _tc_apply() {
     fi
 }
 
-# Branchement sur l'invite
+# Hooking into the prompt
 case "${ZSH_VERSION:-}" in
     '') # bash
         case "$PROMPT_COMMAND" in

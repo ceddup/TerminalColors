@@ -1,11 +1,10 @@
-# Dialogue avec l'emulateur de terminal : sequences OSC et titre de fenetre,
-# plus lecture des reglages de Windows Terminal pour connaitre la couleur de
-# fond de reference.
+# Dialogue with the terminal emulator: OSC sequences and window title, plus
+# reading the Windows Terminal settings to find the reference background colour.
 
 $script:TcEsc = [string][char]27
 $script:TcBel = [string][char]7
 
-# Fonds des palettes livrees avec Windows Terminal.
+# Backgrounds of the colour schemes shipped with Windows Terminal.
 $script:TcBuiltInSchemes = @{
     'campbell'            = '#0C0C0C'
     'campbell powershell' = '#012456'
@@ -28,8 +27,8 @@ function Test-TcWindowsTerminal {
 function Test-TcVtSupported {
     <#
         .SYNOPSIS
-        Determine si l'on peut emettre des sequences OSC sans risque d'afficher
-        des caracteres parasites.
+        Determines whether OSC sequences can be emitted without risking stray
+        characters on screen.
     #>
     if (Test-TcWindowsTerminal) { return $true }
     if ($env:TERM_PROGRAM -in @('vscode', 'WezTerm', 'Hyper', 'Tabby')) { return $true }
@@ -40,8 +39,8 @@ function Test-TcVtSupported {
 function Get-TcWtSettingsPath {
     <#
         .SYNOPSIS
-        Chemin du settings.json de Windows Terminal (Store, Preview, non
-        empaquete ou portable).
+        Path of the Windows Terminal settings.json (Store, Preview, unpackaged or
+        portable).
     #>
     [CmdletBinding()]
     param()
@@ -64,7 +63,7 @@ function Get-TcWtSettingsPath {
 function Get-TcWtProfile {
     <#
         .SYNOPSIS
-        Renvoie le profil Windows Terminal actif, fusionne avec profiles.defaults.
+        Returns the active Windows Terminal profile, merged with profiles.defaults.
     #>
     [CmdletBinding()]
     param($Settings, [string] $ProfileId)
@@ -102,9 +101,9 @@ function Get-TcWtProfile {
 function Get-TcSettingsBackground {
     <#
         .SYNOPSIS
-        Couleur de fond declaree par un settings.json deja analyse : celle du
-        profil s'il en fixe une, sinon celle de sa palette. Renvoie $null si le
-        document ne permet pas de conclure.
+        Background colour declared by an already-parsed settings.json: the
+        profile's if it sets one, otherwise its colour scheme's. Returns $null when
+        the document does not allow a conclusion.
     #>
     [CmdletBinding()]
     param($Settings, [string] $ProfileId)
@@ -140,12 +139,12 @@ function Get-TcSettingsBackground {
 function Get-TcBaseBackground {
     <#
         .SYNOPSIS
-        Couleur de fond [normale] du terminal, servant de base au melange.
-        Deduite des reglages de Windows Terminal, avec mise en cache.
+        The terminal's [normal] background colour, used as the blending base.
+        Derived from the Windows Terminal settings, and cached.
 
         .PARAMETER SettingsPath
-        Lit ce settings.json au lieu de celui detecte automatiquement. Le cache
-        est alors contourne (utilise par les installateurs et les tests).
+        Reads this settings.json instead of the automatically detected one. The
+        cache is then bypassed (used by the installers and the tests).
     #>
     [CmdletBinding()]
     param(
@@ -178,22 +177,22 @@ function Get-TcBaseBackground {
 function Write-TcRaw {
     <#
         .SYNOPSIS
-        Ecrit une sequence de controle directement sur la console, sans passer
-        par le pipeline PowerShell.
+        Writes a control sequence directly to the console, bypassing the PowerShell
+        pipeline.
     #>
     [CmdletBinding()]
     param([string] $Text)
 
     try { [Console]::Write($Text) } catch {
-        Write-Verbose "TerminalColors: ecriture console impossible ($($_.Exception.Message))"
+        Write-Verbose "TerminalColors: could not write to the console ($($_.Exception.Message))"
     }
 }
 
 function Get-TcBackgroundSequence {
     <#
         .SYNOPSIS
-        Construit la sequence OSC 11 demandant le changement de couleur de fond.
-        Format xterm canonique (rgb:rr/gg/bb), compris par Windows Terminal.
+        Builds the OSC 11 sequence requesting the background colour change.
+        Canonical xterm format (rgb:rr/gg/bb), understood by Windows Terminal.
     #>
     [CmdletBinding()]
     param([hashtable] $Rgb)
@@ -204,7 +203,7 @@ function Get-TcBackgroundSequence {
 function Get-TcBackgroundResetSequence {
     <#
         .SYNOPSIS
-        Sequence OSC 111 : retour a la couleur de fond par defaut du profil.
+        OSC 111 sequence: back to the profile's default background colour.
     #>
     [CmdletBinding()]
     param()
@@ -215,8 +214,8 @@ function Get-TcBackgroundResetSequence {
 function Set-TcTerminalBackground {
     <#
         .SYNOPSIS
-        Change la couleur de fond du volet actif (OSC 11). Avec le theme
-        Windows Terminal fourni, l'onglet et la barre de titre suivent.
+        Changes the active pane's background colour (OSC 11). With the supplied
+        Windows Terminal theme, the tab and the title bar follow.
     #>
     [CmdletBinding()]
     param([hashtable] $Rgb)
@@ -227,8 +226,8 @@ function Set-TcTerminalBackground {
 function Reset-TcTerminalBackground {
     <#
         .SYNOPSIS
-        Restaure le fond par defaut. OSC 111 est la sequence prevue pour cela ;
-        en mode explicite on reecrit la couleur de base deduite des reglages.
+        Restores the default background. OSC 111 is the sequence meant for that; in
+        explicit mode the base colour derived from the settings is rewritten instead.
     #>
     [CmdletBinding()]
     param([switch] $Explicit)
@@ -243,15 +242,15 @@ function Reset-TcTerminalBackground {
 function Set-TcWindowTitle {
     <#
         .SYNOPSIS
-        Definit le titre de la fenetre (donc de l'onglet Windows Terminal) via
-        l'API console Unicode : contrairement a OSC 0, les emojis passent quelle
-        que soit la page de code active.
+        Sets the window title (and therefore the Windows Terminal tab title) through
+        the Unicode console API: unlike OSC 0, emoji get through whatever the active
+        code page is.
     #>
     [CmdletBinding()]
     param([string] $Title)
 
     try { $Host.UI.RawUI.WindowTitle = $Title } catch {
-        Write-Verbose "TerminalColors: titre non modifiable ($($_.Exception.Message))"
+        Write-Verbose "TerminalColors: title could not be changed ($($_.Exception.Message))"
     }
 }
 
@@ -262,7 +261,7 @@ function Get-TcWindowTitle {
 function Format-TcTitle {
     <#
         .SYNOPSIS
-        Applique le gabarit de titre. Jetons : {icon} {name} {color} {folder} {path}
+        Applies the title template. Tokens: {icon} {name} {color} {folder} {path}
     #>
     [CmdletBinding()]
     param(

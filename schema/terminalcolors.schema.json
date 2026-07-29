@@ -1,38 +1,38 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "title": "TerminalColors - configuration de dossier",
-  "description": "Fichier .terminalcolors.json : associe une couleur a un dossier et, par defaut, a tous ses sous-dossiers.",
+  "title": "TerminalColors - folder configuration",
+  "description": ".terminalcolors.json file: associates a colour with a folder and, by default, with all of its subfolders.",
   "type": "object",
   "additionalProperties": false,
   "required": ["color"],
   "properties": {
     "$schema": {
       "type": "string",
-      "description": "URL de ce schema (facultatif, pour l'autocompletion dans l'editeur)."
+      "description": "URL of this schema (optional, for editor autocompletion)."
     },
     "color": {
       "type": "string",
-      "description": "Couleur du projet : code hexadecimal (#RRGGBB), nom de couleur connu (Teal, SteelBlue, ...) ou \"auto\" pour deriver une couleur stable du nom du projet.",
+      "description": "Project colour: hex code (#RRGGBB), known colour name (Teal, SteelBlue, ...) or \"auto\" to derive a stable colour from the project name.",
       "examples": ["#215732", "Teal", "auto"]
     },
     "name": {
       "type": "string",
-      "description": "Libelle affiche dans l'onglet. Par defaut, le nom du dossier."
+      "description": "Label shown in the tab. Defaults to the folder name."
     },
     "icon": {
       "type": "string",
-      "description": "Symbole affiche devant le libelle. Par defaut, un carre colore deduit de la couleur.",
+      "description": "Symbol shown before the label. Defaults to a coloured square derived from the colour.",
       "examples": ["🟩", "⚠", "⚙"]
     },
     "tint": {
       "type": "number",
       "minimum": 0,
       "maximum": 1,
-      "description": "Intensite de la teinte du fond du terminal pour ce projet. Surcharge le reglage global (0,30 par defaut)."
+      "description": "Terminal background tint strength for this project. Overrides the global setting (0.30 by default). Ignored in pure-colour mode."
     },
     "branches": {
       "type": "object",
-      "description": "Couleurs par branche Git. La cle accepte les jokers (release/*). La premiere correspondance gagne.",
+      "description": "Per-Git-branch colours. The key accepts wildcards (release/*). The first match wins.",
       "additionalProperties": {
         "type": "string"
       },
@@ -41,7 +41,7 @@
     "applyToSubfolders": {
       "type": "boolean",
       "default": true,
-      "description": "Si false, la couleur ne s'applique qu'a ce dossier precis, pas a ses sous-dossiers."
+      "description": "When false, the colour applies to this folder only, not to its subfolders."
     }
   }
 }

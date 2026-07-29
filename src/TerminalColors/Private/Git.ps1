@@ -1,11 +1,11 @@
-# Detection Git par lecture de fichiers uniquement : aucun appel a git.exe, afin
-# que le hook d'invite reste sous la milliseconde.
+# Git detection by reading files only: no call to git.exe, so that the prompt hook
+# stays below a millisecond.
 
 function Get-TcGitDirectory {
     <#
         .SYNOPSIS
-        Renvoie le chemin du repertoire .git associe a un dossier (gere les
-        worktrees, ou .git est un fichier contenant [gitdir: ...]).
+        Returns the path of the .git directory associated with a folder (handles
+        worktrees, where .git is a file containing [gitdir: ...]).
     #>
     [CmdletBinding()]
     param([string] $Path)
@@ -40,8 +40,8 @@ function Test-TcGitRoot {
 function Get-TcGitBranch {
     <#
         .SYNOPSIS
-        Nom de la branche courante lue dans .git/HEAD. Renvoie $null si detachee
-        ou introuvable.
+        Current branch name read from .git/HEAD. Returns $null when detached or
+        not found.
     #>
     [CmdletBinding()]
     param([string] $Path)
@@ -57,5 +57,5 @@ function Get-TcGitBranch {
     } catch { return $null }
 
     if ($content -match '^ref:\s*refs/heads/(.+)$') { return $Matches[1].Trim() }
-    return $null   # HEAD detachee
+    return $null   # detached HEAD
 }

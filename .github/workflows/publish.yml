@@ -1,13 +1,13 @@
 name: Publish
 
-# Publication sur la PowerShell Gallery.
+# Publication to the PowerShell Gallery.
 #
-# Se declenche a la publication d'une release GitHub : c'est la release qui fait
-# foi, pas un push. Le tag doit valoir v<ModuleVersion> - le job le verifie et
-# echoue si le manifeste et le tag divergent, pour ne jamais publier une version
-# qui ne correspond pas a ce qui est etiquete.
+# Triggered when a GitHub release is published: the release is what counts, not a
+# push. The tag must be v<ModuleVersion> - the job checks this and fails if the
+# manifest and the tag diverge, so a version that does not match what is tagged is
+# never published.
 #
-# Prerequis : le secret PSGALLERY_API_KEY dans les secrets du depot.
+# Prerequisite: the PSGALLERY_API_KEY secret in the repository secrets.
 
 on:
   release:
@@ -28,28 +28,28 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Verifier que le tag correspond au manifeste
+      - name: Check that the tag matches the manifest
         if: github.event_name == 'release'
         shell: pwsh
         run: |
           $manifest = Import-PowerShellDataFile .\src\TerminalColors\TerminalColors.psd1
           $version = $manifest.ModuleVersion
           $tag = '${{ github.event.release.tag_name }}' -replace '^v', ''
-          Write-Host "manifeste = $version / tag = $tag"
+          Write-Host "manifest = $version / tag = $tag"
           if ($version -ne $tag) {
-              throw "Le tag [$tag] ne correspond pas a ModuleVersion [$version]."
+              throw "The tag [$tag] does not match ModuleVersion [$version]."
           }
 
-      - name: Refuser une version deja publiee
+      - name: Refuse an already published version
         shell: pwsh
         run: |
           $manifest = Import-PowerShellDataFile .\src\TerminalColors\TerminalColors.psd1
           $version = $manifest.ModuleVersion
           $found = Find-Module TerminalColors -RequiredVersion $version -ErrorAction SilentlyContinue
           if ($found) {
-              throw "La version $version est deja sur la Gallery. Incrementez ModuleVersion."
+              throw "Version $version is already on the Gallery. Bump ModuleVersion."
           }
-          Write-Host "Version $version disponible."
+          Write-Host "Version $version is available."
 
       - name: Tests (Windows PowerShell 5.1)
         shell: powershell
@@ -59,22 +59,22 @@ jobs:
         shell: pwsh
         run: .\tests\Invoke-Tests.ps1
 
-      - name: Analyse statique
+      - name: Static analysis
         shell: pwsh
         run: |
           Install-Module PSScriptAnalyzer -Force -Scope CurrentUser -SkipPublisherCheck
           $found = Invoke-ScriptAnalyzer -Path . -Recurse -Settings .\PSScriptAnalyzerSettings.psd1
-          if ($found) { $found | Format-Table -AutoSize | Out-String | Write-Host; throw "$($found.Count) probleme(s)." }
+          if ($found) { $found | Format-Table -AutoSize | Out-String | Write-Host; throw "$($found.Count) problem(s)." }
 
-      - name: Simulation
+      - name: Dry run
         shell: pwsh
         env:
           PSGALLERY_API_KEY: ${{ secrets.PSGALLERY_API_KEY }}
         run: |
-          if (-not $env:PSGALLERY_API_KEY) { throw 'Secret PSGALLERY_API_KEY absent.' }
+          if (-not $env:PSGALLERY_API_KEY) { throw 'PSGALLERY_API_KEY secret is missing.' }
           Publish-Module -Path .\src\TerminalColors -NuGetApiKey $env:PSGALLERY_API_KEY -WhatIf -Verbose
 
-      - name: Publier
+      - name: Publish
         if: github.event_name == 'release' || inputs.dry_run == false
         shell: pwsh
         env:
@@ -82,16 +82,16 @@ jobs:
         run: |
           Publish-Module -Path .\src\TerminalColors -NuGetApiKey $env:PSGALLERY_API_KEY -Verbose
 
-      - name: Resume
+      - name: Summary
         if: success()
         shell: pwsh
         run: |
           $version = (Import-PowerShellDataFile .\src\TerminalColors\TerminalColors.psd1).ModuleVersion
           $published = '${{ github.event_name }}' -eq 'release' -or '${{ inputs.dry_run }}' -eq 'false'
-          $state = if ($published) { 'publiee' } else { 'simulation seulement' }
+          $state = if ($published) { 'published' } else { 'dry run only' }
           "## TerminalColors $version - $state" | Out-File $env:GITHUB_STEP_SUMMARY -Append
           if ($published) {
               "https://www.powershellgallery.com/packages/TerminalColors/$version" | Out-File $env:GITHUB_STEP_SUMMARY -Append
               '' | Out-File $env:GITHUB_STEP_SUMMARY -Append
-              'La Gallery met quelques minutes a indexer la page.' | Out-File $env:GITHUB_STEP_SUMMARY -Append
+              'The Gallery takes a few minutes to index the page.' | Out-File $env:GITHUB_STEP_SUMMARY -Append
           }

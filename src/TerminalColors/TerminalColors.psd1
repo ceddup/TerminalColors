@@ -6,8 +6,8 @@
     CompanyName       = 'Synapse Informatique'
     Copyright         = '(c) 2026 Cedric Dupont. MIT License.'
 
-    # La description est en anglais : c'est le texte indexe par la recherche de la
-    # PowerShell Gallery. La documentation francaise est dans README.fr.md.
+    # This description is the text indexed by the PowerShell Gallery search, so it
+    # is written in English. The French documentation lives in README.fr.md.
     Description       = 'Colours the Windows Terminal tab, title bar and window border according to the current directory. Automatically reuses the colours you already defined with Peacock (VS Code) and Solution Colors (Visual Studio), or a source-controllable .terminalcolors.json file. No third-party tool and no background process: the tab colour comes from a Windows Terminal theme driven by OSC 11, the border from DwmSetWindowAttribute.'
 
     PowerShellVersion = '5.1'
@@ -42,8 +42,8 @@
 
     PrivateData       = @{
         PSData = @{
-            # PSEdition_* sont les etiquettes conventionnelles de la Gallery :
-            # elles alimentent le filtre par edition sur le site.
+            # PSEdition_* are the Gallery's conventional tags: they drive the
+            # per-edition filter on the website.
             Tags         = @(
                 'WindowsTerminal'
                 'Terminal'

@@ -13,18 +13,18 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        # Le module doit fonctionner sur les deux editions de PowerShell :
-        # Windows PowerShell 5.1 est celui du profil par defaut de Windows Terminal.
+        # The module must work on both PowerShell editions: Windows PowerShell 5.1
+        # is the one behind Windows Terminal's default profile.
         shell: [powershell, pwsh]
 
     steps:
       - uses: actions/checkout@v4
 
-      - name: Version de PowerShell
+      - name: PowerShell version
         shell: ${{ matrix.shell }}
         run: $PSVersionTable | Format-List
 
-      - name: Validation du manifeste
+      - name: Validate the manifest
         shell: ${{ matrix.shell }}
         run: Test-ModuleManifest -Path .\src\TerminalColors\TerminalColors.psd1 | Format-List Name, Version, PowerShellVersion
 
@@ -32,47 +32,47 @@ jobs:
         shell: ${{ matrix.shell }}
         run: .\tests\Invoke-Tests.ps1
 
-  analyse:
-    name: Analyse statique
+  analysis:
+    name: Static analysis
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
 
-      - name: Installer PSScriptAnalyzer
+      - name: Install PSScriptAnalyzer
         shell: pwsh
         run: Install-Module PSScriptAnalyzer -Force -Scope CurrentUser -SkipPublisherCheck
 
-      - name: Analyser
+      - name: Analyse
         shell: pwsh
         run: |
-          # Les exclusions et leur justification sont dans le fichier de reglages.
+          # The exclusions and their justification live in the settings file.
           $found = Invoke-ScriptAnalyzer -Path . -Recurse -Settings .\PSScriptAnalyzerSettings.psd1
           if ($found) {
               $found | Format-Table -AutoSize RuleName, Severity, ScriptName, Line, Message | Out-String -Width 200 | Write-Host
-              throw "$($found.Count) probleme(s) detecte(s)."
+              throw "$($found.Count) problem(s) found."
           }
-          Write-Host 'Analyse statique propre.'
+          Write-Host 'Static analysis clean.'
 
   shellcheck:
-    name: Variante bash
+    name: bash variant
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
 
-      - name: Syntaxe
+      - name: Syntax
         run: bash -n shell/terminalcolors.sh
 
-      - name: Resolution et parite des couleurs automatiques
+      - name: Resolution and automatic-colour parity
         run: |
           set -e
           source shell/terminalcolors.sh
-          # Valeurs de reference produites par le module PowerShell.
+          # Reference values produced by the PowerShell module.
           expected_oseille='#15C115'
           expected_tc='#B0DC2E'
           actual_oseille=$(_tc_auto_color oseille)
           actual_tc=$(_tc_auto_color TerminalColors)
-          echo "oseille        attendu=$expected_oseille obtenu=$actual_oseille"
-          echo "TerminalColors attendu=$expected_tc obtenu=$actual_tc"
+          echo "oseille        expected=$expected_oseille got=$actual_oseille"
+          echo "TerminalColors expected=$expected_tc got=$actual_tc"
           [ "$actual_oseille" = "$expected_oseille" ]
           [ "$actual_tc" = "$expected_tc" ]
 
@@ -80,9 +80,9 @@ jobs:
           [ "$(_tc_blend '#0C0C0C' '#61DAFB' 0.30)" = '#264A54' ]
 
           mkdir -p /tmp/p/.vscode /tmp/s/.vs/Sol
-          echo '{ "color": "#215732", "name": "Projet" }' > /tmp/p/.terminalcolors.json
+          echo '{ "color": "#215732", "name": "Project" }' > /tmp/p/.terminalcolors.json
           echo 'master:Teal' > /tmp/s/.vs/Sol/color.txt
-          mkdir -p /tmp/p/sous/dossier
-          [ "$(_tc_resolve /tmp/p/sous/dossier)" = '#215732|Projet|Config' ]
+          mkdir -p /tmp/p/sub/folder
+          [ "$(_tc_resolve /tmp/p/sub/folder)" = '#215732|Project|Config' ]
           [ "$(_tc_resolve /tmp/s)" = '#008080|Sol|SolutionColors' ]
-          echo 'Variante bash conforme.'
+          echo 'bash variant conforms.'

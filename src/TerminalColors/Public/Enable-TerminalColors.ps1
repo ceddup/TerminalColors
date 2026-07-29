@@ -1,83 +1,81 @@
 function Enable-TerminalColors {
     <#
         .SYNOPSIS
-        Active la coloration automatique du terminal selon le dossier courant.
+        Enables automatic terminal colouring based on the current directory.
 
         .DESCRIPTION
-        Enveloppe la fonction [prompt] existante : a chaque affichage de
-        l'invite, la couleur associee au dossier courant est appliquee. L'invite
-        d'origine (oh-my-posh, Starship, personnalisee...) est conservee et
-        restaurable par Disable-TerminalColors.
+        Wraps the existing [prompt] function: every time the prompt is drawn, the
+        colour associated with the current directory is applied. Your original
+        prompt (oh-my-posh, Starship, your own...) is kept, and restored by
+        Disable-TerminalColors.
 
-        A placer dans votre profil PowerShell, apres l'initialisation de votre
-        invite si vous en utilisez une.
+        Put this in your PowerShell profile, after your prompt's initialisation if
+        you use one.
 
         .PARAMETER Tint
-        Intensite de la teinte appliquee au fond du terminal, de 0 a 1.
-        La valeur par defaut (0,30) colore nettement l'onglet et la barre de
-        titre tout en gardant un fond sombre et lisible. Ignore si -PureColor
-        est actif.
+        Strength of the tint applied to the terminal background, from 0 to 1.
+        The default (0.30) clearly colours the tab and title bar while keeping the
+        background dark and readable. Ignored when -PureColor is set.
 
         .PARAMETER PureColor
-        Envoie la couleur du projet sans aucune dilution : l'onglet, la barre de
-        titre et la bordure prennent la couleur exacte du projet.
+        Sends the project colour with no dilution at all: the tab, the title bar
+        and the border take the exact project colour.
 
-        A n'utiliser qu'avec le calque opaque installe
-        (Install-TerminalColorsBackdrop), qui garde le fond du volet inchange.
-        Sans lui, c'est le volet entier qui prendrait la couleur pure et le texte
-        deviendrait illisible. Invoke-TerminalColorsDoctor signale la
-        combinaison incoherente.
+        Only use this with the opaque backdrop installed
+        (Install-TerminalColorsBackdrop), which keeps the pane background
+        unchanged. Without it, the whole pane would take the pure colour and the
+        text would become unreadable. Invoke-TerminalColorsDoctor reports the
+        inconsistent combination.
 
         .PARAMETER TitleFormat
-        Gabarit du titre d'onglet. Jetons disponibles : {icon}, {name}, {color},
-        {folder}, {path}.
+        Tab title template. Available tokens: {icon}, {name}, {color}, {folder},
+        {path}.
 
         .PARAMETER NoTitle
-        Ne modifie pas le titre de l'onglet.
+        Leaves the tab title alone.
 
         .PARAMETER NoIcons
-        N'ajoute pas de carre colore devant le nom du projet.
+        Does not add a coloured square before the project name.
 
         .PARAMETER NoWindowBorder
-        Ne colore pas la bordure de la fenetre (evite l'appel a DWM).
+        Does not colour the window border (avoids the DWM call).
 
         .PARAMETER CaptionColor
-        Colore aussi la barre de titre systeme. N'a d'effet visible que si
-        [showTabsInTitlebar] est desactive dans Windows Terminal.
+        Also colours the system title bar. Only has a visible effect when
+        [showTabsInTitlebar] is disabled in Windows Terminal.
 
         .PARAMETER NoAutoGitColors
-        Desactive la couleur automatique deduite du nom du depot Git. Seules les
-        couleurs explicites (.terminalcolors.json, Peacock, Solution Colors)
-        seront utilisees.
+        Disables the automatic colour derived from a Git repository name. Only
+        explicit colours (.terminalcolors.json, Peacock, Solution Colors) will be
+        used.
 
         .PARAMETER BaseBackground
-        Force la couleur de fond de reference servant au melange, au lieu de la
-        deduire des reglages de Windows Terminal.
+        Forces the reference background colour used for blending, instead of
+        deriving it from the Windows Terminal settings.
 
         .PARAMETER ExplicitReset
-        En quittant un dossier colore, reecrit la couleur de fond de reference
-        au lieu d'emettre la sequence de reinitialisation OSC 111.
+        When leaving a coloured folder, rewrites the reference background colour
+        instead of emitting the OSC 111 reset sequence.
 
         .PARAMETER AlwaysReapply
-        Reemet la couleur a chaque affichage de l'invite, et non seulement au
-        changement de dossier. A activer si un programme que vous lancez
-        reinitialise la couleur de fond du terminal.
+        Reapplies the colour every time the prompt is drawn, not only when the
+        directory changes. Enable this if a program you run resets the terminal
+        background colour.
 
         .EXAMPLE
         Enable-TerminalColors
 
         .EXAMPLE
         Enable-TerminalColors -PureColor
-        Couleur franche sur l'onglet, la barre de titre et la bordure, fond du
-        volet inchange. Demande Install-TerminalColorsBackdrop.
+        Vivid colour on the tab, title bar and border, pane background unchanged.
+        Requires Install-TerminalColorsBackdrop.
 
         .EXAMPLE
         Enable-TerminalColors -Tint 0.45 -TitleFormat '{icon} {name} ({folder})'
 
         .EXAMPLE
         Enable-TerminalColors -NoWindowBorder -NoAutoGitColors
-        N'utilise que les couleurs declarees explicitement, sans toucher a la
-        bordure de la fenetre.
+        Uses only explicitly declared colours, and leaves the window border alone.
     #>
     [CmdletBinding()]
     param(
@@ -103,7 +101,7 @@ function Enable-TerminalColors {
     )
 
     if ($BaseBackground -and -not (ConvertFrom-TcColor -Value $BaseBackground)) {
-        throw "TerminalColors : couleur de fond de reference invalide [$BaseBackground]."
+        throw "TerminalColors: invalid reference background colour [$BaseBackground]."
     }
 
     $options = New-TcDefaultOptions
@@ -124,7 +122,7 @@ function Enable-TerminalColors {
     $script:TcBaseBackgroundCache = $null
 
     if (-not $script:TcEnabled) {
-        # On memorise l'invite existante pour pouvoir la restaurer.
+        # Remember the existing prompt so it can be restored.
         $existing = Get-Command -Name prompt -CommandType Function -ErrorAction SilentlyContinue
         if ($existing) {
             $global:TerminalColorsOriginalPrompt = $existing.ScriptBlock
@@ -132,8 +130,8 @@ function Enable-TerminalColors {
             $global:TerminalColorsOriginalPrompt = $null
         }
 
-        # Le bloc est cree hors du module pour s'executer dans la portee globale,
-        # exactement comme l'invite d'origine.
+        # The block is created outside the module so that it runs in the global
+        # scope, exactly like the original prompt.
         $body = @'
     try { Update-TerminalColor } catch { }
     if ($global:TerminalColorsOriginalPrompt) {
@@ -156,11 +154,11 @@ function Enable-TerminalColors {
 function Disable-TerminalColors {
     <#
         .SYNOPSIS
-        Desactive la coloration automatique et restaure l'invite d'origine.
+        Disables automatic colouring and restores the original prompt.
 
         .PARAMETER KeepColor
-        Conserve la couleur actuellement appliquee au lieu de reinitialiser
-        l'apparence du terminal.
+        Keeps the colour currently applied instead of resetting the terminal
+        appearance.
 
         .EXAMPLE
         Disable-TerminalColors
@@ -184,7 +182,7 @@ function Disable-TerminalColors {
 function Test-TerminalColorsEnabled {
     <#
         .SYNOPSIS
-        Indique si la coloration automatique est active dans cette session.
+        Indicates whether automatic colouring is active in this session.
     #>
     [CmdletBinding()]
     [OutputType([bool])]

@@ -4,12 +4,13 @@ Thanks for taking a look. Issues, ideas and pull requests are all welcome.
 
 ## Language
 
-- **Documentation** (`README.md`, this file, `docs/`) is in **English**.
-- **Source comments and comment-based help** are in **French**, because that is the
-  maintainers' working language. Please keep whichever language the file you touch
-  already uses rather than mixing both in one file.
-- `README.fr.md` is the French translation of the README. If you change one, change both,
-  or say in your pull request that the other still needs updating.
+**English everywhere**: documentation, source comments, comment-based help, error
+messages, test names and CI step names. `README.fr.md` is the one exception — it is the
+French translation of the README. If you change one README, change both, or say in your
+pull request that the other still needs updating.
+
+User-visible strings matter as much as the docs: an error message or a `Get-Help` synopsis
+is read far more often than a comment.
 
 ## Getting set up
 

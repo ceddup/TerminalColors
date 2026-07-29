@@ -5,6 +5,15 @@ This format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and
 
 ## [Unreleased]
 
+### Changed
+
+- The project is now English-first throughout: comment-based help, error messages, source
+  comments, test names and CI step names. `README.fr.md` is the French translation of the
+  README, and the only French file left.
+- `Invoke-TerminalColorsDoctor` now tells an unreadable `settings.json` apart from one
+  containing invalid JSON, and reports the underlying cause. Both cases used to produce
+  the same message, which left no way to know which fix applied.
+
 ## [1.1.0]
 
 Pure colour on the tab, the title bar and the border — without touching the pane you

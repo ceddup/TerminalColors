@@ -1,26 +1,25 @@
 function Update-TerminalColor {
     <#
         .SYNOPSIS
-        Applique la couleur correspondant au dossier courant.
+        Applies the colour matching the current directory.
 
         .DESCRIPTION
-        Appelee automatiquement a chaque affichage de l'invite quand
-        Enable-TerminalColors est actif. Ne fait rien si le dossier n'a pas
-        change depuis le dernier appel, afin que le cout par invite reste
-        negligeable.
+        Called automatically every time the prompt is drawn while
+        Enable-TerminalColors is active. Does nothing if the directory has not
+        changed since the last call, so that the per-prompt cost stays negligible.
 
         .PARAMETER Path
-        Dossier a evaluer. Par defaut, le dossier courant.
+        Directory to evaluate. Defaults to the current directory.
 
         .PARAMETER Force
-        Reapplique la couleur meme si rien n'a change.
+        Reapplies the colour even when nothing has changed.
 
         .PARAMETER PassThru
-        Renvoie l'objet decrivant la couleur resolue.
+        Returns the object describing the resolved colour.
 
         .EXAMPLE
         Update-TerminalColor -Force
-        Reapplique la couleur, par exemple apres avoir modifie .terminalcolors.json.
+        Reapplies the colour, for instance after editing .terminalcolors.json.
     #>
     [CmdletBinding()]
     [OutputType([pscustomobject])]
@@ -44,9 +43,9 @@ function Update-TerminalColor {
 
     $pathChanged = ($target -ne $script:TcLastPath)
 
-    # Dossier inchange : on ne relit rien. On ne reemet la couleur que si
-    # l'utilisateur a demande AlwaysReapply (utile si un programme reinitialise
-    # le fond du terminal), sinon on ressort immediatement.
+    # Directory unchanged: read nothing. The colour is only re-emitted when the
+    # user asked for AlwaysReapply (useful if a program resets the terminal
+    # background); otherwise return immediately.
     if (-not $pathChanged -and -not $Force) {
         if ($options.AlwaysReapply) {
             if ($script:TcLastInfo) {
@@ -84,20 +83,20 @@ function Update-TerminalColor {
 function Get-TcEffectiveBackground {
     <#
         .SYNOPSIS
-        Couleur de fond a envoyer au terminal pour un projet donne.
+        Background colour to send to the terminal for a given project.
 
         .DESCRIPTION
-        En mode couleur pure, c'est la couleur du projet telle quelle : le calque
-        opaque garde le volet lisible, et toute dilution serait contre-productive
-        - y compris celle qu'un projet aurait demandee par sa cle [tint].
+        In pure-colour mode this is the project colour as-is: the opaque backdrop
+        keeps the pane readable, and any dilution would be counter-productive -
+        including one a project asked for through its [tint] key.
 
-        Sinon, la couleur est melangee au fond de reference selon la teinte
-        demandee, celle du projet ayant la priorite sur celle de la session.
+        Otherwise the colour is blended into the reference background using the
+        requested tint, the project's taking priority over the session's.
 
         .PARAMETER BaseBackground
-        Fond de reference du melange. Deduit des reglages de Windows Terminal
-        s'il n'est pas fourni. Le mode couleur pure ne le lit jamais, ce qui
-        evite une lecture de settings.json.
+        Reference background for the blend. Derived from the Windows Terminal
+        settings when not supplied. Pure-colour mode never reads it, which avoids
+        a settings.json read.
     #>
     [CmdletBinding()]
     param(
@@ -123,7 +122,7 @@ function Set-TcAppearance {
         [hashtable] $Options
     )
 
-    # Icone : celle de la configuration, sinon le carre colore le plus proche.
+    # Icon: the one from the configuration, otherwise the nearest coloured square.
     $icon = [string]$Info.Icon
     if ([string]::IsNullOrEmpty($icon) -and $Options.Icons) {
         $icon = Get-TcColorEmoji -Rgb $Info.Rgb
@@ -165,12 +164,12 @@ function Reset-TcAppearance {
 function Reset-TerminalColor {
     <#
         .SYNOPSIS
-        Restaure l'apparence par defaut du terminal (fond, titre, bordure).
+        Restores the terminal's default appearance (background, title, border).
 
         .PARAMETER Explicit
-        Reecrit la couleur de fond deduite des reglages de Windows Terminal au
-        lieu d'utiliser la sequence de reinitialisation OSC 111. Utile si votre
-        version de Windows Terminal ne gere pas OSC 111.
+        Rewrites the background colour derived from the Windows Terminal settings
+        instead of using the OSC 111 reset sequence. Useful if your version of
+        Windows Terminal does not honour OSC 111.
 
         .EXAMPLE
         Reset-TerminalColor

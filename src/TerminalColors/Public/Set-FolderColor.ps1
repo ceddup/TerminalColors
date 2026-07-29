@@ -1,42 +1,41 @@
 function Set-FolderColor {
     <#
         .SYNOPSIS
-        Associe une couleur a un dossier en y ecrivant un fichier
-        .terminalcolors.json.
+        Associates a colour with a folder by writing a .terminalcolors.json file
+        into it.
 
         .DESCRIPTION
-        La couleur s'applique au dossier et, par defaut, a tous ses
-        sous-dossiers. Le fichier est volontairement lisible et versionnable :
-        commitez-le pour que toute l'equipe partage la meme couleur de projet.
+        The colour applies to the folder and, by default, to all of its
+        subfolders. The file is deliberately readable and source-controllable:
+        commit it so the whole team shares the same project colour.
 
         .PARAMETER Color
-        Couleur au format hexadecimal (#215732), nom de couleur connu (Teal,
-        SteelBlue...) ou [auto] pour deriver une couleur stable du nom du
-        projet.
+        Colour as a hex code (#215732), a known colour name (Teal, SteelBlue...)
+        or [auto] to derive a stable colour from the project name.
 
         .PARAMETER Path
-        Dossier a colorer. Par defaut, le dossier courant.
+        Folder to colour. Defaults to the current folder.
 
         .PARAMETER Name
-        Libelle affiche dans l'onglet. Par defaut, le nom du dossier.
+        Label shown in the tab. Defaults to the folder name.
 
         .PARAMETER Icon
-        Symbole affiche devant le libelle. Par defaut, un carre colore deduit de
-        la couleur.
+        Symbol shown before the label. Defaults to a coloured square derived from
+        the colour.
 
         .PARAMETER Tint
-        Intensite de la teinte propre a ce projet, de 0 a 1. Surcharge le
-        reglage global.
+        Tint strength specific to this project, from 0 to 1. Overrides the global
+        setting.
 
         .PARAMETER Branches
-        Table de correspondance branche Git -> couleur. Les jokers sont
-        acceptes. Exemple : @{ 'main' = '#215732'; 'release/*' = '#B71C1C' }
+        Git branch -> colour map. Wildcards are accepted.
+        Example: @{ 'main' = '#215732'; 'release/*' = '#B71C1C' }
 
         .PARAMETER NoSubfolders
-        Limite la couleur au seul dossier indique.
+        Limits the colour to the given folder only.
 
         .PARAMETER Force
-        Ecrase un fichier de configuration existant.
+        Overwrites an existing configuration file.
 
         .EXAMPLE
         Set-FolderColor '#215732'
@@ -72,28 +71,28 @@ function Set-FolderColor {
     try {
         $directory = (Resolve-Path -LiteralPath $Path -ErrorAction Stop).ProviderPath
     } catch {
-        throw "TerminalColors : dossier introuvable [$Path]."
+        throw "TerminalColors: folder not found [$Path]."
     }
     if (-not [System.IO.Directory]::Exists($directory)) {
-        throw "TerminalColors : [$directory] n'est pas un dossier."
+        throw "TerminalColors: [$directory] is not a folder."
     }
 
     if ($Color -ne 'auto' -and -not (ConvertFrom-TcColor -Value $Color)) {
-        throw "TerminalColors : couleur non reconnue [$Color]. Utilisez un code hexadecimal (#RRGGBB), un nom de couleur connu, ou [auto]."
+        throw "TerminalColors: unrecognised colour [$Color]. Use a hex code (#RRGGBB), a known colour name, or [auto]."
     }
 
     if ($Branches) {
         foreach ($key in $Branches.Keys) {
             $value = [string]$Branches[$key]
             if ($value -ne 'auto' -and -not (ConvertFrom-TcColor -Value $value)) {
-                throw "TerminalColors : couleur non reconnue [$value] pour la branche [$key]."
+                throw "TerminalColors: unrecognised colour [$value] for branch [$key]."
             }
         }
     }
 
     $target = Join-Path $directory '.terminalcolors.json'
     if ([System.IO.File]::Exists($target) -and -not $Force) {
-        throw "TerminalColors : [$target] existe deja. Utilisez -Force pour l'ecraser."
+        throw "TerminalColors: [$target] already exists. Use -Force to overwrite it."
     }
 
     $config = [ordered]@{ color = $Color }
@@ -109,8 +108,8 @@ function Set-FolderColor {
 
     $json = ([pscustomobject]$config | ConvertTo-Json -Depth 10)
 
-    if ($PSCmdlet.ShouldProcess($target, 'Ecrire la configuration de couleur')) {
-        # UTF-8 sans BOM : lisible par tous les outils, diff propre dans Git.
+    if ($PSCmdlet.ShouldProcess($target, 'Write the colour configuration')) {
+        # UTF-8 without BOM: readable by every tool, clean diff in Git.
         $encoding = New-Object System.Text.UTF8Encoding($false)
         [System.IO.File]::WriteAllText($target, $json + [Environment]::NewLine, $encoding)
 
@@ -130,10 +129,10 @@ function Set-FolderColor {
 function Remove-FolderColor {
     <#
         .SYNOPSIS
-        Supprime le fichier .terminalcolors.json d'un dossier.
+        Removes a folder's .terminalcolors.json file.
 
         .PARAMETER Path
-        Dossier concerne. Par defaut, le dossier courant.
+        Folder concerned. Defaults to the current folder.
 
         .EXAMPLE
         Remove-FolderColor
@@ -147,14 +146,14 @@ function Remove-FolderColor {
     try {
         $directory = (Resolve-Path -LiteralPath $Path -ErrorAction Stop).ProviderPath
     } catch {
-        throw "TerminalColors : dossier introuvable [$Path]."
+        throw "TerminalColors: folder not found [$Path]."
     }
 
     $removed = $false
     foreach ($name in @('.terminalcolors.json', 'terminalcolors.json', '.terminalcolors')) {
         $candidate = Join-Path $directory $name
         if ([System.IO.File]::Exists($candidate)) {
-            if ($PSCmdlet.ShouldProcess($candidate, 'Supprimer')) {
+            if ($PSCmdlet.ShouldProcess($candidate, 'Remove')) {
                 Remove-Item -LiteralPath $candidate -Force
                 $removed = $true
             }
@@ -162,7 +161,7 @@ function Remove-FolderColor {
     }
 
     if (-not $removed) {
-        Write-Warning "TerminalColors : aucune configuration de couleur dans [$directory]."
+        Write-Warning "TerminalColors: no colour configuration in [$directory]."
         return
     }
 

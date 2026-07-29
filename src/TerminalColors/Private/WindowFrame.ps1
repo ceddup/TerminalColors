@@ -1,20 +1,19 @@
-# Coloration de la bordure de la fenetre Windows Terminal via DWM.
+# Colouring the Windows Terminal window border through DWM.
 #
-# Windows Terminal n'expose aucune API pour recolorer une fenetre existante,
-# mais Windows 11 permet de fixer la couleur de bordure de n'importe quelle
-# fenetre (DWMWA_BORDER_COLOR, build 22000+). On localise la fenetre du
-# terminal en remontant la chaine des processus parents.
+# Windows Terminal exposes no API to recolour an existing window, but Windows 11
+# allows the border colour of any window to be set (DWMWA_BORDER_COLOR, build
+# 22000+). The terminal window is located by walking up the parent process chain.
 #
-# Le type interop est compile a la premiere utilisation seulement, pour ne pas
-# ralentir le demarrage des sessions PowerShell.
+# The interop type is compiled on first use only, so it never slows down the
+# startup of PowerShell sessions.
 
 $script:TcWindowHandle = [IntPtr]::Zero
 $script:TcInteropReady = $false
 $script:TcInteropFailed = $false
 
-# La recherche de la fenetre enumere tous les processus (requete CIM, ~150 ms).
-# En cas d'echec on temporise, sinon chaque changement de dossier paierait ce
-# cout inutilement sur un poste ou la fenetre reste introuvable.
+# Looking the window up enumerates every process (a CIM query, ~150 ms). On
+# failure we back off, otherwise every directory change would pay that cost for
+# nothing on a machine where the window stays unfindable.
 $script:TcWindowLookupFailedAt = $null
 $script:TcWindowLookupRetrySeconds = 30
 
@@ -108,7 +107,7 @@ namespace TerminalColors
         $script:TcInteropReady = $true
         return $true
     } catch {
-        Write-Verbose "TerminalColors: interop indisponible ($($_.Exception.Message))"
+        Write-Verbose "TerminalColors: interop unavailable ($($_.Exception.Message))"
         $script:TcInteropFailed = $true
         return $false
     }
@@ -117,7 +116,7 @@ namespace TerminalColors
 function Get-TcParentProcessMap {
     <#
         .SYNOPSIS
-        Table PID -> @{ Parent; Name }, construite en une seule requete CIM.
+        PID -> @{ Parent; Name } table, built with a single CIM query.
     #>
     [CmdletBinding()]
     param()
@@ -129,7 +128,7 @@ function Get-TcParentProcessMap {
         try {
             $processes = Get-WmiObject -Class Win32_Process -Property ProcessId, ParentProcessId, Name -ErrorAction Stop
         } catch {
-            Write-Verbose "TerminalColors: enumeration des processus impossible ($($_.Exception.Message))"
+            Write-Verbose "TerminalColors: could not enumerate processes ($($_.Exception.Message))"
             return $map
         }
     }
@@ -143,8 +142,8 @@ function Get-TcParentProcessMap {
 function Get-TcTerminalWindowHandle {
     <#
         .SYNOPSIS
-        Handle de la fenetre Windows Terminal hebergeant la session courante.
-        Le resultat est mis en cache pour la duree de la session.
+        Handle of the Windows Terminal window hosting the current session. The
+        result is cached for the lifetime of the session.
     #>
     [CmdletBinding()]
     param([switch] $Refresh)
@@ -163,7 +162,7 @@ function Get-TcTerminalWindowHandle {
         return [IntPtr]::Zero
     }
 
-    # 1. Remonter la chaine des parents jusqu'a WindowsTerminal.exe
+    # 1. Walk up the parent chain to WindowsTerminal.exe
     $map = Get-TcParentProcessMap
     $terminalPid = 0
     $current = $PID
@@ -175,21 +174,21 @@ function Get-TcTerminalWindowHandle {
         $current = $entry.Parent
     }
 
-    # 2. Repli : un seul processus Windows Terminal en cours d'execution
+    # 2. Fallback: a single Windows Terminal process is running
     if ($terminalPid -eq 0) {
         $candidates = @(Get-Process -Name 'WindowsTerminal', 'WindowsTerminalPreview' -ErrorAction SilentlyContinue)
         if ($candidates.Count -eq 1) { $terminalPid = $candidates[0].Id }
     }
 
     if ($terminalPid -eq 0) {
-        Write-Verbose 'TerminalColors: processus Windows Terminal introuvable.'
+        Write-Verbose 'TerminalColors: Windows Terminal process not found.'
         $script:TcWindowLookupFailedAt = Get-Date
         return [IntPtr]::Zero
     }
 
-    # Windows Terminal peut heberger plusieurs fenetres dans un seul processus :
-    # on identifie la notre par le titre, que nous venons de definir.
-    # @() obligatoire : un pipeline a un seul resultat ne renvoie pas un tableau.
+    # Windows Terminal can host several windows in a single process: ours is
+    # identified by the title, which we have just set.
+    # The @() is required: a single-result pipeline does not return an array.
     $windows = @([TerminalColors.Native]::GetProcessWindows([uint32]$terminalPid) |
         Where-Object { [TerminalColors.Native]::GetClass($_) -eq 'CASCADIA_HOSTING_WINDOW_CLASS' })
 
@@ -215,8 +214,8 @@ function Get-TcTerminalWindowHandle {
 function Set-TcWindowBorderColor {
     <#
         .SYNOPSIS
-        Colore la bordure de la fenetre du terminal. Renvoie $true en cas de
-        succes (HRESULT S_OK).
+        Colours the terminal window's border. Returns $true on success
+        (HRESULT S_OK).
     #>
     [CmdletBinding()]
     param(
@@ -236,7 +235,7 @@ function Set-TcWindowBorderColor {
     }
 
     if ($hr -ne 0) {
-        Write-Verbose ('TerminalColors: DwmSetWindowAttribute a renvoye 0x{0:X8}' -f $hr)
+        Write-Verbose ('TerminalColors: DwmSetWindowAttribute returned 0x{0:X8}' -f $hr)
         return $false
     }
     return $true

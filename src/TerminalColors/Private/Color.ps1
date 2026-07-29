@@ -1,18 +1,18 @@
-# Outils de manipulation de couleurs : analyse, melange, generation deterministe.
-# Aucune dependance externe, compatible Windows PowerShell 5.1.
+# Colour helpers: parsing, blending, deterministic generation. No external
+# dependency, compatible with Windows PowerShell 5.1.
 
-# Alias de couleurs propres a l'extension Visual Studio [Solution Colors]
-# (cf. SolutionColors/src/ColorCache.cs). Les autres noms sont resolus via
-# System.Drawing (chargement paresseux) puis via cette table de secours.
+# Colour aliases specific to the Visual Studio [Solution Colors] extension
+# (see SolutionColors/src/ColorCache.cs). Other names are resolved through
+# System.Drawing (lazily loaded), then through this fallback table.
 $script:TcNamedColors = @{
-    # Alias Solution Colors
+    # Solution Colors aliases
     'burgundy'  = '#FF6347'  # Tomato
     'pumpkin'   = '#FF4500'  # OrangeRed
     'volt'      = '#9ACD32'  # YellowGreen
     'mint'      = '#66CDAA'  # MediumAquamarine
     'darkbrown' = '#8B4513'  # SaddleBrown
     'lavender'  = '#9370DB'  # MediumPurple
-    # Noms usuels les plus courants (evite de charger System.Drawing)
+    # The most common everyday names (avoids loading System.Drawing)
     'red'       = '#FF0000'
     'green'     = '#008000'
     'blue'      = '#0000FF'
@@ -49,7 +49,8 @@ $script:TcNamedColors = @{
 function ConvertFrom-TcColor {
     <#
         .SYNOPSIS
-        Convertit une couleur (hex ou nom) en table @{ R; G; B }. Renvoie $null si invalide.
+        Converts a colour (hex or name) into an @{ R; G; B } table. Returns $null
+        when invalid.
     #>
     [CmdletBinding()]
     param([string] $Value)
@@ -62,7 +63,7 @@ function ConvertFrom-TcColor {
         switch ($hex.Length) {
             3 { $hex = "$($hex[0])$($hex[0])$($hex[1])$($hex[1])$($hex[2])$($hex[2])" }
             4 { $hex = "$($hex[0])$($hex[0])$($hex[1])$($hex[1])$($hex[2])$($hex[2])" }
-            8 { $hex = $hex.Substring(0, 6) }  # canal alpha ignore
+            8 { $hex = $hex.Substring(0, 6) }  # alpha channel ignored
         }
         return @{
             R = [Convert]::ToInt32($hex.Substring(0, 2), 16)
@@ -74,11 +75,11 @@ function ConvertFrom-TcColor {
     $key = $v.ToLowerInvariant()
     if ($script:TcNamedColors.ContainsKey($key)) {
         $mapped = $script:TcNamedColors[$key]
-        if ($null -eq $mapped) { return $null }   # [None] = pas de couleur
+        if ($null -eq $mapped) { return $null }   # [None] = no colour
         return ConvertFrom-TcColor -Value $mapped
     }
 
-    # Dernier recours : noms .NET connus (SlateBlue, MediumAquamarine, ...)
+    # Last resort: known .NET names (SlateBlue, MediumAquamarine, ...)
     try {
         if (-not ('System.Drawing.Color' -as [type])) {
             Add-Type -AssemblyName System.Drawing -ErrorAction Stop
@@ -88,7 +89,7 @@ function ConvertFrom-TcColor {
             return @{ R = [int]$known.R; G = [int]$known.G; B = [int]$known.B }
         }
     } catch {
-        Write-Verbose "TerminalColors: nom de couleur non resolu [$v] ($($_.Exception.Message))"
+        Write-Verbose "TerminalColors: unresolved colour name [$v] ($($_.Exception.Message))"
     }
 
     return $null
@@ -104,7 +105,7 @@ function ConvertTo-TcHex {
 function Get-TcBlendedColor {
     <#
         .SYNOPSIS
-        Melange lineairement Base vers Color selon Amount (0 = Base, 1 = Color).
+        Linearly blends Base towards Color by Amount (0 = Base, 1 = Color).
     #>
     [CmdletBinding()]
     param(
@@ -116,9 +117,8 @@ function Get-TcBlendedColor {
     if ($Amount -lt 0) { $Amount = 0 }
     if ($Amount -gt 1) { $Amount = 1 }
 
-    # Arrondi au plus proche en s'eloignant de zero, comme la variante bash
-    # (int(x + 0.5) en awk) : les deux implementations donnent exactement la
-    # meme couleur pour un meme projet.
+    # Round half away from zero, like the bash variant (int(x + 0.5) in awk): both
+    # implementations give exactly the same colour for the same project.
     return @{
         R = [int][Math]::Round($Base.R + ($Color.R - $Base.R) * $Amount, 0, [MidpointRounding]::AwayFromZero)
         G = [int][Math]::Round($Base.G + ($Color.G - $Base.G) * $Amount, 0, [MidpointRounding]::AwayFromZero)
@@ -179,19 +179,19 @@ function ConvertTo-TcHsl {
 function Get-TcAutoColor {
     <#
         .SYNOPSIS
-        Genere une couleur stable et lisible a partir d'une chaine (nom de depot).
-        Le meme nom donne toujours la meme couleur, sur tous les postes.
+        Generates a stable, readable colour from a string (a repository name). The
+        same name always gives the same colour, on every machine.
     #>
     [CmdletBinding()]
     param([string] $Seed)
 
-    # FNV-1a 32 bits : deterministe, contrairement a String.GetHashCode() qui
-    # varie d'un processus a l'autre.
+    # FNV-1a 32-bit: deterministic, unlike String.GetHashCode(), which varies from
+    # one process to the next.
     #
-    # Les calculs se font en Int64 : le produit intermediaire atteint 56 bits,
-    # ce qui depasse la precision exacte d'un Double (53 bits) mais reste exact
-    # en Int64. Le masque est un Int64 explicite car le litteral 0xFFFFFFFF est
-    # interprete par PowerShell comme l'Int32 -1, ce qui ne masquerait rien.
+    # The arithmetic is done in Int64: the intermediate product reaches 56 bits,
+    # which exceeds a Double's exact precision (53 bits) but stays exact in Int64.
+    # The mask is an explicit Int64 because PowerShell parses the literal
+    # 0xFFFFFFFF as the Int32 -1, which would mask nothing at all.
     $mask = [int64]4294967295
     $hash = [int64]2166136261
     foreach ($ch in $Seed.ToLowerInvariant().ToCharArray()) {
@@ -199,7 +199,7 @@ function Get-TcAutoColor {
         $hash = ($hash * 16777619) -band $mask
     }
 
-    # 24 teintes espacees de 15 degres.
+    # 24 hues, 15 degrees apart.
     $hue = [double](($hash % 24) * 15)
     $sat = 0.62 + (([int](($hash -shr 8) % 3)) * 0.09)   # 0.62 / 0.71 / 0.80
     $lig = 0.42 + (([int](($hash -shr 16) % 3)) * 0.05)  # 0.42 / 0.47 / 0.52
@@ -210,7 +210,7 @@ function Get-TcAutoColor {
 function Get-TcColorEmoji {
     <#
         .SYNOPSIS
-        Choisit le carre colore Unicode le plus proche d'une couleur RVB.
+        Picks the Unicode coloured square nearest to an RGB colour.
     #>
     [CmdletBinding()]
     param([hashtable] $Rgb)
@@ -218,18 +218,18 @@ function Get-TcColorEmoji {
     $hsl = ConvertTo-TcHsl -Rgb $Rgb
 
     if ($hsl.S -lt 0.15) {
-        if ($hsl.L -ge 0.5) { return [char]::ConvertFromUtf32(0x2B1C) }  # carre blanc
-        return [char]::ConvertFromUtf32(0x2B1B)                          # carre noir
+        if ($hsl.L -ge 0.5) { return [char]::ConvertFromUtf32(0x2B1C) }  # white square
+        return [char]::ConvertFromUtf32(0x2B1B)                          # black square
     }
 
     $h = $hsl.H
-    # Brun : orange sombre
+    # Brown: dark orange
     if ($h -ge 15 -and $h -lt 45 -and $hsl.L -lt 0.38) { return [char]::ConvertFromUtf32(0x1F7EB) }
 
-    if ($h -lt 15 -or $h -ge 340) { return [char]::ConvertFromUtf32(0x1F7E5) }  # rouge
+    if ($h -lt 15 -or $h -ge 340) { return [char]::ConvertFromUtf32(0x1F7E5) }  # red
     if ($h -lt 45) { return [char]::ConvertFromUtf32(0x1F7E7) }                 # orange
-    if ($h -lt 70) { return [char]::ConvertFromUtf32(0x1F7E8) }                 # jaune
-    if ($h -lt 175) { return [char]::ConvertFromUtf32(0x1F7E9) }                # vert
-    if ($h -lt 265) { return [char]::ConvertFromUtf32(0x1F7E6) }                # bleu
-    return [char]::ConvertFromUtf32(0x1F7EA)                                    # violet
+    if ($h -lt 70) { return [char]::ConvertFromUtf32(0x1F7E8) }                 # yellow
+    if ($h -lt 175) { return [char]::ConvertFromUtf32(0x1F7E9) }                # green
+    if ($h -lt 265) { return [char]::ConvertFromUtf32(0x1F7E6) }                # blue
+    return [char]::ConvertFromUtf32(0x1F7EA)                                    # purple
 }

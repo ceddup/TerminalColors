@@ -1,25 +1,24 @@
-# Barre de titre systeme : deuxieme facon d'obtenir une couleur pure, sans
-# toucher au fond du volet ni ajouter de fichier.
+# System title bar: the second way to get a pure colour, without touching the pane
+# background and without adding a file.
 #
-# Par defaut, Windows Terminal dessine ses onglets DANS la barre de titre : la
-# fenetre n'a donc pas de vraie barre de titre systeme, et sa couleur depend du
-# theme - donc de la couleur de fond. En desactivant showTabsInTitlebar, la
-# fenetre retrouve une barre de titre systeme, que DWM sait colorer directement
-# (DWMWA_CAPTION_COLOR), exactement comme la bordure : couleur pure, immediate,
-# sans passer par la couleur de fond.
+# By default Windows Terminal draws its tabs INSIDE the title bar, so the window
+# has no real system title bar and its colour depends on the theme - therefore on
+# the background colour. Disabling showTabsInTitlebar gives the window a genuine
+# system title bar back, which DWM can colour directly (DWMWA_CAPTION_COLOR),
+# exactly like the border: pure colour, immediately, without going through the
+# background colour.
 #
-# Contrepartie : la bande d'onglets descend sous la barre de titre, et elle reste
-# soumise au theme. L'onglet lui-meme ne porte donc la couleur du projet que si
-# le calque opaque est installe (Install-TerminalColorsBackdrop).
+# The trade-off: the tab strip moves below the title bar, and it stays subject to
+# the theme. The tab itself therefore only carries the project colour when the
+# opaque backdrop is installed (Install-TerminalColorsBackdrop).
 #
-# La coloration effective de la barre de titre est faite a l'execution par
-# [Enable-TerminalColors -CaptionColor].
+# The actual colouring is done at runtime by [Enable-TerminalColors -CaptionColor].
 
 function Get-TcShowTabsInTitlebar {
     <#
         .SYNOPSIS
-        Valeur de showTabsInTitlebar dans un settings.json analyse. $null si la
-        cle est absente (Windows Terminal considere alors qu'elle vaut true).
+        Value of showTabsInTitlebar in a parsed settings.json. $null when the key
+        is absent (Windows Terminal then treats it as true).
     #>
     param($Settings)
 
@@ -29,31 +28,30 @@ function Get-TcShowTabsInTitlebar {
 function Install-TerminalColorsTitleBar {
     <#
         .SYNOPSIS
-        Fait apparaitre une vraie barre de titre systeme, colorable en couleur
-        pure par DWM.
+        Brings back a real system title bar, which DWM can colour in pure colour.
 
         .DESCRIPTION
-        Ecrit [showTabsInTitlebar: false] dans settings.json. La fenetre Windows
-        Terminal retrouve alors une barre de titre systeme, que TerminalColors
-        colore en couleur pure du projet via DWM - comme la bordure, et sans
-        toucher au fond du volet.
+        Writes [showTabsInTitlebar: false] into settings.json. The Windows Terminal
+        window then regains a system title bar, which TerminalColors colours in the
+        pure project colour through DWM - like the border, and without touching the
+        pane background.
 
-        Deux choses a savoir :
+        Two things to know:
 
-        - Windows Terminal doit etre entierement redemarre (toutes ses fenetres
-          fermees) : ce reglage n'est pas relu a chaud.
-        - la coloration effective demande [Enable-TerminalColors -CaptionColor].
-          Sans ce commutateur, la barre de titre reste de la couleur du systeme.
+        - Windows Terminal must be restarted completely (all of its windows
+          closed): this setting is not re-read at runtime.
+        - the actual colouring requires [Enable-TerminalColors -CaptionColor].
+          Without that switch the title bar keeps the system colour.
 
-        La bande d'onglets, elle, descend sous la barre de titre et reste soumise
-        au theme : pour que l'onglet lui-meme porte la couleur du projet,
-        installez aussi le calque opaque (Install-TerminalColorsBackdrop).
+        The tab strip, for its part, moves below the title bar and stays subject to
+        the theme: for the tab itself to carry the project colour, install the
+        opaque backdrop as well (Install-TerminalColorsBackdrop).
 
         .PARAMETER SettingsPath
-        Chemin du settings.json a modifier. Detecte automatiquement par defaut.
+        Path of the settings.json to modify. Detected automatically by default.
 
         .PARAMETER NoBackup
-        N'ecrit pas de copie de sauvegarde.
+        Does not write a backup copy.
 
         .EXAMPLE
         Install-TerminalColorsTitleBar
@@ -74,12 +72,12 @@ function Install-TerminalColorsTitleBar {
     $text = [System.IO.File]::ReadAllText($SettingsPath)
     $settings = ConvertFrom-TcJsonText -Text $text
     if ($null -eq $settings) {
-        throw "TerminalColors : [$SettingsPath] n'est pas un JSON valide. Corrigez-le avant de modifier la barre de titre."
+        throw "TerminalColors: [$SettingsPath] is not valid JSON. Fix it before changing the title bar."
     }
 
     $previous = Get-TcShowTabsInTitlebar -Settings $settings
     if ($previous -eq $false) {
-        Write-Verbose 'TerminalColors: showTabsInTitlebar est deja a false.'
+        Write-Verbose 'TerminalColors: showTabsInTitlebar is already false.'
         return [pscustomobject]@{
             SettingsPath = $SettingsPath
             Changed      = $false
@@ -96,16 +94,16 @@ function Install-TerminalColorsTitleBar {
 
     $parsed = ConvertFrom-TcJsonText -Text $newText
     if ($null -eq $parsed) {
-        throw 'TerminalColors : la modification aurait produit un JSON invalide. Aucun changement ecrit.'
+        throw 'TerminalColors: the change would have produced invalid JSON. Nothing was written.'
     }
     if ((Get-TcShowTabsInTitlebar -Settings $parsed) -ne $false) {
-        throw 'TerminalColors : verification echouee (showTabsInTitlebar non desactive). Aucun changement ecrit.'
+        throw 'TerminalColors: verification failed (showTabsInTitlebar not disabled). Nothing was written.'
     }
 
     $backupPath = $null
-    if ($PSCmdlet.ShouldProcess($SettingsPath, 'Desactiver showTabsInTitlebar')) {
-        # On memorise l'absence de cle comme une valeur a part entiere, pour que
-        # la desinstallation retire la cle au lieu d'ecrire [true].
+    if ($PSCmdlet.ShouldProcess($SettingsPath, 'Disable showTabsInTitlebar')) {
+        # Record the absence of the key as a value in its own right, so that
+        # uninstalling removes the key instead of writing [true].
         if ($null -eq $previous) {
             Set-TcInstallState -Name 'PreviousShowTabsInTitlebar' -Value 'absent'
         } else {
@@ -126,19 +124,19 @@ function Install-TerminalColorsTitleBar {
 function Uninstall-TerminalColorsTitleBar {
     <#
         .SYNOPSIS
-        Remet les onglets dans la barre de titre (comportement par defaut de
-        Windows Terminal).
+        Puts the tabs back into the title bar (Windows Terminal's default
+        behaviour).
 
         .DESCRIPTION
-        Restaure la valeur de showTabsInTitlebar telle qu'elle etait avant
-        Install-TerminalColorsTitleBar, en retirant la cle si elle etait absente.
-        Windows Terminal doit etre entierement redemarre.
+        Restores the value of showTabsInTitlebar as it was before
+        Install-TerminalColorsTitleBar, removing the key if it was absent. Windows
+        Terminal must be restarted completely.
 
         .PARAMETER SettingsPath
-        Chemin du settings.json a modifier. Detecte automatiquement par defaut.
+        Path of the settings.json to modify. Detected automatically by default.
 
         .PARAMETER NoBackup
-        N'ecrit pas de copie de sauvegarde.
+        Does not write a backup copy.
 
         .EXAMPLE
         Uninstall-TerminalColorsTitleBar
@@ -155,11 +153,11 @@ function Uninstall-TerminalColorsTitleBar {
     $text = [System.IO.File]::ReadAllText($SettingsPath)
     $settings = ConvertFrom-TcJsonText -Text $text
     if ($null -eq $settings) {
-        throw "TerminalColors : [$SettingsPath] n'est pas un JSON valide."
+        throw "TerminalColors: [$SettingsPath] is not valid JSON."
     }
 
     if ((Get-TcShowTabsInTitlebar -Settings $settings) -ne $false) {
-        Write-Warning 'TerminalColors : showTabsInTitlebar n''est pas desactive ; rien a faire.'
+        Write-Warning 'TerminalColors: showTabsInTitlebar is not disabled; nothing to do.'
         return
     }
 
@@ -169,21 +167,21 @@ function Uninstall-TerminalColorsTitleBar {
 
     if ($null -eq $restore -or [string]$restore -eq 'absent') {
         $applied = Remove-TcJsonMember -Text $text -AnchorIndex $root -Name 'showTabsInTitlebar'
-        $change = 'showTabsInTitlebar retire'
+        $change = 'showTabsInTitlebar removed'
     } else {
         $literal = 'false'
         if ([bool]$restore) { $literal = 'true' }
         $applied = Set-TcJsonMember -Text $text -AnchorIndex $root -Name 'showTabsInTitlebar' -Literal $literal -Indent '    '
-        $change = "showTabsInTitlebar restaure ($literal)"
+        $change = "showTabsInTitlebar restored ($literal)"
     }
 
     $newText = $applied.Text
     if ($null -eq (ConvertFrom-TcJsonText -Text $newText)) {
-        throw 'TerminalColors : la modification aurait produit un JSON invalide. Aucun changement ecrit.'
+        throw 'TerminalColors: the change would have produced invalid JSON. Nothing was written.'
     }
 
     $backupPath = $null
-    if ($PSCmdlet.ShouldProcess($SettingsPath, 'Remettre les onglets dans la barre de titre')) {
+    if ($PSCmdlet.ShouldProcess($SettingsPath, 'Put the tabs back into the title bar')) {
         $backupPath = Save-TcWtSettings -Path $SettingsPath -Text $newText -NoBackup:$NoBackup
         Remove-TcInstallState -Name 'PreviousShowTabsInTitlebar'
     }
@@ -200,11 +198,11 @@ function Uninstall-TerminalColorsTitleBar {
 function Test-TerminalColorsTitleBar {
     <#
         .SYNOPSIS
-        Indique si Windows Terminal affiche une vraie barre de titre systeme
-        (donc colorable en couleur pure par DWM).
+        Indicates whether Windows Terminal shows a real system title bar (and can
+        therefore be coloured in pure colour by DWM).
 
         .PARAMETER SettingsPath
-        Chemin du settings.json a inspecter. Detecte automatiquement par defaut.
+        Path of the settings.json to inspect. Detected automatically by default.
 
         .EXAMPLE
         Test-TerminalColorsTitleBar
