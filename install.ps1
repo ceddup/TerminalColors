@@ -270,7 +270,7 @@ if ($WhatIfPreference) {
 Write-Host ''
 Write-Host '  Done.' -ForegroundColor Green
 Write-Host ''
-Write-Host '  To check:        ' -NoNewline; Write-Host 'Invoke-TerminalColorsDoctor' -ForegroundColor White
-Write-Host '  To try it:       ' -NoNewline; Write-Host 'cd <a Git repository> and look at the tab' -ForegroundColor White
-Write-Host '  To pick a colour:' -NoNewline; Write-Host ' Set-FolderColor ''#215732''' -ForegroundColor White
+Write-Host '  To check:         ' -NoNewline; Write-Host 'Invoke-TerminalColorsDoctor' -ForegroundColor White
+Write-Host '  To try it:        ' -NoNewline; Write-Host 'cd <a Git repository> and look at the tab' -ForegroundColor White
+Write-Host '  To pick a colour: ' -NoNewline; Write-Host 'Set-FolderColor ''#215732''' -ForegroundColor White
 Write-Host ''
