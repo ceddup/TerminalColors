@@ -98,6 +98,12 @@ function Install-TerminalColors {
         Install-TerminalColors -WhatIf
         Shows every change that would be made, and writes nothing.
     #>
+    # SupportsShouldProcess without a ShouldProcess call of its own: every write is
+    # performed by a sub-command that implements it, and -WhatIf is forwarded to each
+    # of them explicitly. Announcing the orchestration on top of that would report
+    # the same change twice.
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSShouldProcess', '',
+        Justification = 'Delegated to the sub-commands, which each call ShouldProcess; -WhatIf is forwarded to all of them.')]
     [CmdletBinding(SupportsShouldProcess, ConfirmImpact = 'Medium')]
     [OutputType([pscustomobject])]
     param(
@@ -293,6 +299,10 @@ function Uninstall-TerminalColors {
         .EXAMPLE
         Uninstall-TerminalColors
     #>
+    # Same as Install-TerminalColors: the removals are all performed by
+    # sub-commands that implement ShouldProcess themselves.
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSShouldProcess', '',
+        Justification = 'Delegated to the sub-commands, which each call ShouldProcess; -WhatIf is forwarded to all of them.')]
     [CmdletBinding(SupportsShouldProcess, ConfirmImpact = 'Medium')]
     param(
         [switch] $KeepTheme,
