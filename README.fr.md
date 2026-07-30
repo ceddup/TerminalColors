@@ -15,8 +15,8 @@ dans Visual Studio pour reconnaître un projet d'un coup d'œil. TerminalColors 
 la même chose à Windows Terminal — **et réutilise les couleurs que vous avez déjà définies**.
 
 ```
-PS C:\> cd C:\Repos\oseille          -> onglet vert, barre de titre verte, bordure verte
-PS C:\Repos\oseille> cd ..\pastel    -> tout passe en cyan
+PS C:\> cd C:\Repos\oseille          -> onglet vert, bordure verte
+PS C:\Repos\oseille> cd ..\pastel    -> onglet et bordure passent en cyan
 PS C:\Repos\pastel> cd C:\           -> retour à la normale
 ```
 
@@ -29,15 +29,18 @@ PowerShell, et c'est tout.
 
 | Élément | Comment | Quand |
 | --- | --- | --- |
-| **Onglet** | thème Windows Terminal lié au fond du volet | dès le `cd`, y compris pour les onglets en arrière-plan |
-| **Barre de titre** | idem (`tabRow`) | quand l'onglet du projet est celui affiché |
-| **Bordure de fenêtre** | API Windows `DwmSetWindowAttribute` | dès le `cd` (Windows 11) |
+| **Onglet sélectionné** | thème Windows Terminal lié au fond du volet (`tab`) | dès le `cd`, en couleur pleine |
+| **Onglets en arrière-plan** | idem, mais Windows Terminal les atténue | dès le `cd`, chacun sa couleur |
+| **Bordure de fenêtre** | thème Windows Terminal (`window.frame`) | dès le `cd`, en couleur pleine |
 | **Titre de l'onglet** | API console | dès le `cd` — `🟩 Oseille` |
 | **Barre de titre système** | `DwmSetWindowAttribute` | sur demande, voir [Barre de titre système](#barre-de-titre-système) |
 
-La couleur du projet arrive **pure** sur l'onglet, la barre de titre et la bordure, tandis
-que le volet dans lequel vous lisez du texte reste exactement tel qu'il était. C'est le
-rôle du calque opaque — voir [Comment ça marche](#comment-ça-marche).
+La couleur du projet arrive **pure** sur l'onglet sélectionné et sur la bordure, tandis que
+le volet dans lequel vous lisez du texte reste exactement tel qu'il était. C'est le rôle du
+calque opaque — voir [Comment ça marche](#comment-ça-marche).
+
+En revanche, **la bande d'onglets ne change jamais de couleur** : elle est épinglée à la
+couleur de votre terminal, pour ne pas prendre celle du projet qui se trouve devant.
 
 ---
 
@@ -52,7 +55,7 @@ charge). Aucun droit administrateur, rien d'installé hors de votre profil utili
 Install-Module TerminalColors -Scope CurrentUser
 Import-Module TerminalColors
 
-Install-TerminalColorsTheme        # fait suivre l'onglet et la barre de titre
+Install-TerminalColorsTheme        # fait suivre l'onglet et la bordure de fenêtre
 Install-TerminalColorsBackdrop     # garde le volet lisible avec un onglet franc
 Install-TerminalColorsProfile      # active la coloration dans chaque nouvelle session
 ```
@@ -188,7 +191,7 @@ Enable-TerminalColors -PureColor -TitleFormat '{icon} {name} ({folder})'
 | `-TitleFormat` | gabarit du titre. Jetons : `{icon}` `{name}` `{color}` `{folder}` `{path}` |
 | `-NoTitle` | ne touche pas au titre de l'onglet |
 | `-NoIcons` | pas de carré coloré devant le libellé |
-| `-NoWindowBorder` | ne colore pas la bordure de la fenêtre |
+| `-NoWindowBorder` | n'appelle pas `DwmSetWindowAttribute` (la bordure vient du thème) |
 | `-CaptionColor` | colore aussi la barre de titre système (exige `Install-TerminalColorsTitleBar`) |
 | `-NoAutoGitColors` | n'utilise que les couleurs déclarées explicitement |
 | `-BaseBackground` | force la couleur de fond de référence servant au mélange |
@@ -207,17 +210,21 @@ Toutes disposent d'une aide complète : `Get-Help Enable-TerminalColors -Full`.
 ## Comment ça marche
 
 Windows Terminal n'expose aucune API pour recolorer un onglet à la demande. TerminalColors
-combine donc quatre mécanismes, tous natifs.
+combine donc trois mécanismes, tous natifs.
 
 **1. `OSC 11`** — la séquence de contrôle standard qui demande au terminal de changer sa
 couleur de fond. Le module l'émet à chaque changement de dossier.
 
 **2. Le thème Windows Terminal** installé déclare
-`"tab": { "background": "terminalBackground" }` et
-`"tabRow": { "background": "terminalBackground" }`. Windows Terminal recopie alors la
-couleur de fond du volet actif sur l'onglet **et** sur la barre de titre, onglet par
-onglet. C'est ce qui rend la coloration visible là où ça compte, sans processus
-supplémentaire — et c'est pour cela que le thème est indispensable.
+`"tab": { "background": "terminalBackground", "unfocusedBackground": "terminalBackground" }`
+et `"window": { "frame": "terminalBackground", "unfocusedFrame": "terminalBackground" }`.
+Windows Terminal recopie alors la couleur de fond de chaque volet sur son onglet et sur la
+bordure de la fenêtre. C'est ce qui rend la coloration visible là où ça compte, sans
+processus supplémentaire — et c'est pour cela que le thème est indispensable.
+
+La bande d'onglets en est volontairement exclue : elle est épinglée à une couleur figée, si
+bien que le bandeau ne prend jamais la couleur du projet qui se trouve devant. Voir plus bas :
+cet épinglage est aussi ce qui permet aux onglets d'arrière-plan de garder leur couleur.
 
 **3. Le calque opaque** résout le problème que ces deux mécanismes créent ensemble. Un
 thème n'accepte que quatre valeurs pour `tab.background` : `terminalBackground`, `accent`,
@@ -231,11 +238,37 @@ Windows Terminal peint l'onglet à partir de la *couleur* de fond, jamais de l'*
 l'onglet devient franc, le volet reste tel quel. Les images sont de minuscules PNG
 générés par le module dans `%LOCALAPPDATA%\TerminalColors`.
 
-**4. `DwmSetWindowAttribute`** — l'API Windows 11 qui colore la bordure de fenêtre
-(`DWMWA_BORDER_COLOR`) et, sur demande, la barre de titre système
-(`DWMWA_CAPTION_COLOR`). Le module localise la fenêtre Windows Terminal en remontant la
-chaîne des processus parents. L'interop est compilée à la première utilisation seulement,
-pour ne pas ralentir le démarrage de vos sessions.
+**4. `DwmSetWindowAttribute`** — utilisée seulement pour la barre de titre système
+(`DWMWA_CAPTION_COLOR`), qui n'existe que si les onglets sortent de la barre de titre. Ce
+n'est **pas** elle qui colore la bordure de fenêtre : `DWMWA_BORDER_COLOR` renvoie `S_OK`
+sur une fenêtre Windows Terminal et ne change rien, parce que Windows Terminal dessine son
+propre cadre. C'est le thème qui fait ce travail (mécanisme 2). Le module localise la fenêtre
+en remontant la chaîne des processus parents, et l'interop est compilée à la première
+utilisation seulement, pour ne pas ralentir le démarrage de vos sessions.
+
+Tout ce qui concerne la fenêtre entière lui appartient, pas à l'onglet : seul l'onglet visible
+a le droit de le piloter. Un onglet compare le titre de la fenêtre aux titres qu'il a posés, et
+n'y touche pas quand ce n'est pas lui qui est à l'écran. Il refuse aussi de *réinitialiser* une
+couleur qu'il n'a jamais posée : quand plusieurs onglets démarrent en même temps, un onglet
+sans couleur restaure le titre par défaut du shell — exactement ce que la fenêtre affiche tant
+que l'onglet actif n'a pas posé le sien — donc le titre seul ne suffit pas à les distinguer.
+
+### Pourquoi la bande d'onglets est épinglée et les onglets non
+
+Mesuré, pas supposé : l'onglet **sélectionné** est peint avec sa propre couleur de fond, de
+façon opaque, alors qu'un onglet **d'arrière-plan** est composité à environ 30 % d'opacité
+par-dessus la bande d'onglets.
+
+La bande est donc la base dans laquelle tout onglet d'arrière-plan se mélange. Quand elle
+portait la couleur du projet actif, ces onglets en empruntaient 70 % : un onglet noir à côté
+d'un projet `#215732` mesurait `#1A4026`, un `#61DAFB` mesurait `#347E6E` — tout devenait
+vert. Épingler la bande règle le problème à la source, et c'est aussi ce que l'on veut
+visuellement, puisque le bandeau ne suit alors jamais le projet qui se trouve devant.
+
+La conséquence à connaître : un onglet d'arrière-plan affiche une version **atténuée** de sa
+couleur, pas la couleur pleine. `#61DAFB` sur une bande épinglée à `#0C0C0C` ressort à
+`#254953`. Windows Terminal n'offre aucune valeur par onglet peinte de façon opaque : il n'y a
+pas de contournement.
 
 Le hook d'invite enveloppe votre fonction `prompt` existante (oh-my-posh, Starship ou la
 vôtre), qui reste intacte et est restaurée par `Disable-TerminalColors`. Il ne fait rien
@@ -278,10 +311,17 @@ Dans les trois cas, `Invoke-TerminalColorsDoctor` nomme le problème et le corre
 
 ### Limites connues
 
-- **Plusieurs onglets dans une même fenêtre** : l'onglet et la barre de titre sont gérés
-  par onglet, donc toujours corrects. La **bordure**, elle, appartient à la fenêtre : le
-  dernier onglet ayant affiché son invite l'emporte. Elle se recale dès que vous validez
-  une commande dans l'onglet actif. `-NoWindowBorder` désactive cette couche.
+- **Un onglet en arrière-plan affiche une version atténuée de sa couleur**, pas la couleur
+  pleine — Windows Terminal le composite à environ 30 % d'opacité par-dessus la bande
+  d'onglets, et n'offre aucune valeur par onglet peinte de façon opaque. `#61DAFB` sur une
+  bande épinglée à `#0C0C0C` ressort à `#254953`. L'onglet sélectionné et la bordure de
+  fenêtre portent la couleur exacte du projet.
+- **La bordure de fenêtre fait un pixel de large.** Cette épaisseur vient de Windows, et ni
+  le thème ni `DwmSetWindowAttribute` n'expose de largeur. Pour une grande surface colorée,
+  `Install-TerminalColorsTitleBar` donne une vraie barre de titre système.
+- **La bordure exige un Windows Terminal assez récent pour gérer `window.frame`** dans les
+  thèmes (1.19+). Sur les versions antérieures l'onglet fonctionne quand même, et le module
+  retombe sur `DwmSetWindowAttribute` — sans effet sur Windows Terminal, mais sans risque.
 - Un `tabColor` défini sur un profil Windows Terminal **prend le pas sur le thème** et
   figera la couleur de l'onglet. `Invoke-TerminalColorsDoctor` le signale.
 - Le calque opaque remplace `profiles.defaults.backgroundImage`. Si vous utilisez déjà une
@@ -352,7 +392,7 @@ Uninstall-Module TerminalColors     # ou supprimez le dossier si installé depui
 ## Développement
 
 ```powershell
-.\tests\Invoke-Tests.ps1            # 161 tests, aucune dépendance
+.\tests\Invoke-Tests.ps1            # 190 tests, aucune dépendance
 .\tests\Invoke-Tests.ps1 -Detailed
 ```
 
@@ -380,3 +420,4 @@ Voir [CONTRIBUTING.md](CONTRIBUTING.md) pour contribuer et
 ## Licence
 
 MIT — voir [LICENSE](LICENSE).
+

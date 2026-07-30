@@ -64,7 +64,9 @@ function Invoke-TerminalColorsDoctor {
             $installed = $settings.themes | Where-Object { $_.name -eq 'TerminalColors' }
             $selected = ([string]$settings.theme -eq 'TerminalColors')
 
-            if ($installed -and $selected) {
+            if ($installed -and $selected -and -not (Test-TcThemeUpToDate -Settings $settings)) {
+                Add-Result 'Theme' 'Warning' 'theme from an earlier version: the tab row follows the active project, or background tabs do not carry their own colour. Run Install-TerminalColorsTheme to upgrade it.'
+            } elseif ($installed -and $selected) {
                 Add-Result 'Theme' 'OK' 'the TerminalColors theme is installed and selected.'
             } elseif ($installed) {
                 Add-Result 'Theme' 'Problem' "theme present but not selected (current theme: [$($settings.theme)]). Run Install-TerminalColorsTheme."
@@ -97,6 +99,20 @@ function Invoke-TerminalColorsDoctor {
                 Add-Result 'Opaque backdrop' 'Problem' 'missing while -PureColor is active: the pane background takes the full project colour. Run Install-TerminalColorsBackdrop, or drop -PureColor.'
             } else {
                 Add-Result 'Opaque backdrop' 'Info' 'not installed: the colour is diluted onto the pane background (the original behaviour). Install-TerminalColorsBackdrop makes it vivid on the tab.'
+            }
+
+            # --- Window border ----------------------------------------------
+            # The border comes from the theme, not from DWM: colouring it through
+            # DwmSetWindowAttribute returns S_OK on a Windows Terminal window and
+            # changes nothing. So the thing to check is the theme key.
+            $themeObject = $settings.themes | Where-Object { $_.name -eq 'TerminalColors' } | Select-Object -First 1
+            $frame = [string](Get-TcJsonProperty -InputObject (Get-TcJsonProperty -InputObject $themeObject -Name 'window') -Name 'frame')
+            if ($frame -eq 'terminalBackground') {
+                Add-Result 'Window border' 'OK' 'the theme paints the border with the project colour (window.frame). It is one pixel wide - Windows sets that width.'
+            } elseif ($frame) {
+                Add-Result 'Window border' 'Warning' "the theme pins the border to [$frame] instead of following the project. Run Install-TerminalColorsTheme."
+            } else {
+                Add-Result 'Window border' 'Problem' 'the theme does not declare window.frame, so the border keeps the system colour. Run Install-TerminalColorsTheme.'
             }
 
             # --- System title bar -------------------------------------------
@@ -150,6 +166,10 @@ function Invoke-TerminalColorsDoctor {
         $hwnd = Get-TcTerminalWindowHandle
         if ($hwnd -ne [IntPtr]::Zero) {
             Add-Result 'Terminal window' 'OK' ("handle 0x{0:X}" -f [int64]$hwnd)
+
+            if ((Test-TcActiveTab) -eq $false) {
+                Add-Result 'Visible tab' 'Info' 'this tab is not the one on screen, so it leaves the window-wide colouring alone.'
+            }
         } else {
             Add-Result 'Terminal window' 'Warning' 'Windows Terminal window not located: the border will not be coloured (tab and title bar still work).'
         }

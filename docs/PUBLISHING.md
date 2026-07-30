@@ -87,8 +87,8 @@ release publishes without your click — or remove the `environment:` line from
    the release otherwise:
 
    ```powershell
-   git commit -am "Release 1.2.0"
-   git tag v1.2.0
+   git commit -am "Release 1.0.0"
+   git tag v1.0.0
    git push origin main --tags
    ```
 

@@ -31,7 +31,7 @@
 
     .PARAMETER SkipBackdrop
     Does not install the opaque backdrop. The project colour is then diluted onto
-    the pane background (the 1.0 behaviour), and the tab stays subtle.
+    the pane background instead, and the tab stays subtle.
 
     .PARAMETER SystemTitleBar
     Moves the tabs out of the title bar so that Windows Terminal shows a real

@@ -15,8 +15,8 @@ in Visual Studio to tell your projects apart at a glance, TerminalColors brings 
 thing to Windows Terminal — **and reuses the colours you have already defined**.
 
 ```
-PS C:\> cd C:\Repos\oseille          -> green tab, green title bar, green window border
-PS C:\Repos\oseille> cd ..\pastel    -> everything turns cyan
+PS C:\> cd C:\Repos\oseille          -> green tab, green window border
+PS C:\Repos\oseille> cd ..\pastel    -> tab and border turn cyan
 PS C:\Repos\pastel> cd C:\           -> back to normal
 ```
 
@@ -29,15 +29,18 @@ that is all.
 
 | Element | How | When |
 | --- | --- | --- |
-| **Tab** | Windows Terminal theme bound to the pane background | on `cd`, background tabs included |
-| **Title bar** | same mechanism (`tabRow`) | when the project tab is the visible one |
-| **Window border** | Windows `DwmSetWindowAttribute` API | on `cd` (Windows 11) |
+| **Selected tab** | Windows Terminal theme bound to the pane background (`tab`) | on `cd`, at full strength |
+| **Background tabs** | same mechanism, but Windows Terminal mutes them | on `cd`, each keeps its own colour |
+| **Window border** | Windows Terminal theme (`window.frame`) | on `cd`, at full strength |
 | **Tab title** | console API | on `cd` — `🟩 Oseille` |
 | **System title bar** | `DwmSetWindowAttribute` | opt-in, see [System title bar](#system-title-bar) |
 
-The project colour lands **pure** on the tab, the title bar and the border, while the
-pane you actually read text in stays exactly as it was. That decoupling is what the
-opaque backdrop is for — see [How it works](#how-it-works).
+The project colour lands **pure** on the selected tab and on the border, while the pane you
+actually read text in stays exactly as it was. That decoupling is what the opaque backdrop
+is for — see [How it works](#how-it-works).
+
+The tab row, on the other hand, **never changes colour**: it is pinned to your terminal's
+own background so it does not take the colour of whichever project happens to be in front.
 
 ---
 
@@ -52,7 +55,7 @@ No administrator rights, nothing installed outside your user profile.
 Install-Module TerminalColors -Scope CurrentUser
 Import-Module TerminalColors
 
-Install-TerminalColorsTheme        # makes the tab and title bar follow the colour
+Install-TerminalColorsTheme        # makes the tab and the window border follow the colour
 Install-TerminalColorsBackdrop     # keeps the pane readable while the tab stays vivid
 Install-TerminalColorsProfile      # enables it in every new session
 ```
@@ -181,7 +184,7 @@ Enable-TerminalColors -PureColor -TitleFormat '{icon} {name} ({folder})'
 | `-TitleFormat` | title template. Tokens: `{icon}` `{name}` `{color}` `{folder}` `{path}` |
 | `-NoTitle` | leave the tab title alone |
 | `-NoIcons` | no coloured square before the label |
-| `-NoWindowBorder` | do not colour the window border |
+| `-NoWindowBorder` | skip the `DwmSetWindowAttribute` call (the border itself comes from the theme) |
 | `-CaptionColor` | also colour the system title bar (needs `Install-TerminalColorsTitleBar`) |
 | `-NoAutoGitColors` | only use explicitly declared colours |
 | `-BaseBackground` | force the reference background colour used for blending |
@@ -200,17 +203,21 @@ Every command has full help: `Get-Help Enable-TerminalColors -Full`.
 ## How it works
 
 Windows Terminal exposes no API to recolour a tab on demand. TerminalColors combines
-four native mechanisms instead.
+three native mechanisms instead.
 
 **1. `OSC 11`** — the standard control sequence asking the terminal to change its
 background colour. The module emits it on every directory change.
 
 **2. The Windows Terminal theme** it installs declares
-`"tab": { "background": "terminalBackground" }` and
-`"tabRow": { "background": "terminalBackground" }`. Windows Terminal then copies the
-active pane's background colour onto the tab **and** the title bar, per tab. This is
-what makes the colour visible where it matters, with no extra process — and why the
-theme is mandatory.
+`"tab": { "background": "terminalBackground", "unfocusedBackground": "terminalBackground" }`
+and `"window": { "frame": "terminalBackground", "unfocusedFrame": "terminalBackground" }`.
+Windows Terminal then copies each pane's background colour onto its own tab and onto the
+window border. This is what makes the colour visible where it matters, with no extra
+process — and why the theme is mandatory.
+
+The tab row is deliberately left out: it is pinned to a fixed colour so the strip never
+takes the colour of whichever project is in front. See below — that pinning is also what
+lets background tabs keep their own colour.
 
 **3. The opaque backdrop** solves the problem those two create together. A theme accepts
 only four values for `tab.background`: `terminalBackground`, `accent`, a fixed colour,
@@ -224,10 +231,35 @@ paints the tab from the background *colour*, never from the *image* — so the t
 vivid while the pane stays exactly as it was. The images are tiny PNGs generated by the
 module in `%LOCALAPPDATA%\TerminalColors`.
 
-**4. `DwmSetWindowAttribute`** — the Windows 11 API that colours the window border
-(`DWMWA_BORDER_COLOR`) and, optionally, the system title bar (`DWMWA_CAPTION_COLOR`).
-The module locates the Windows Terminal window by walking up the parent process chain.
-The interop is compiled on first use only, so it never slows session startup.
+**4. `DwmSetWindowAttribute`** — used only for the system title bar
+(`DWMWA_CAPTION_COLOR`), which exists when the tabs are moved out of the title bar. It is
+**not** what colours the window border: `DWMWA_BORDER_COLOR` returns `S_OK` on a Windows
+Terminal window and changes nothing, because Windows Terminal draws its own frame. The
+theme does that job (mechanism 2). The module locates the window by walking up the parent
+process chain, and the interop is compiled on first use only, so it never slows session
+startup.
+
+Anything window-wide belongs to the *window*, not to the tab, so only the visible tab is
+allowed to drive it: a tab compares the window title with the titles it has set, and keeps
+its hands off when it is not the one on screen. It also refuses to *reset* a colour it never
+applied — when several tabs start at once, a colourless tab restores the shell's default
+title, which is exactly what the window shows until the active tab sets its own, so the title
+alone is not enough to tell them apart.
+
+### Why the tab row is pinned and the tabs are not
+
+Measured, not assumed: the **selected** tab is painted with its own background colour
+opaquely, while a **background** tab is composited at roughly 30 % opacity over the tab row.
+
+So the row is the base every background tab is mixed into. When the row carried the active
+project's colour, background tabs borrowed 70 % of it — a plain black tab next to a
+`#215732` project measured `#1A4026`, and a `#61DAFB` one measured `#347E6E`: everything
+turned green. Pinning the row to a fixed colour fixes that at the source, and it is also
+what you want visually, since the strip then never follows whichever project is in front.
+
+The consequence to know about: a background tab shows a **muted** version of its own colour,
+not the full one. `#61DAFB` over a pinned `#0C0C0C` row comes out `#254953`. Windows Terminal
+offers no per-tab value that is painted opaquely, so there is no way around it.
 
 The prompt hook wraps your existing `prompt` function (oh-my-posh, Starship or your
 own), which stays intact and is restored by `Disable-TerminalColors`. It does nothing at
@@ -266,10 +298,16 @@ In all three cases `Invoke-TerminalColorsDoctor` names the problem and the fix.
 
 ### Known limitations
 
-- **Several tabs in one window**: the tab and title bar are per-tab, so always correct.
-  The **border**, however, belongs to the window: the last tab to render its prompt wins.
-  It realigns as soon as you run a command in the active tab. `-NoWindowBorder` turns
-  that layer off.
+- **A background tab shows a muted version of its colour**, not the full one — Windows
+  Terminal composites it at about 30 % opacity over the tab row, and offers no per-tab value
+  that is painted opaquely. `#61DAFB` over a pinned `#0C0C0C` row comes out `#254953`. The
+  selected tab and the window border carry the exact project colour.
+- **The window border is one pixel wide.** Windows sets that thickness, and neither the theme
+  nor `DwmSetWindowAttribute` exposes a width. If you want a large coloured surface,
+  `Install-TerminalColorsTitleBar` gives you a full system title bar instead.
+- **The border needs a Windows Terminal recent enough to support `window.frame`** in themes
+  (1.19+). On older versions the tab still works, and the module falls back to
+  `DwmSetWindowAttribute` — which does nothing on Windows Terminal, but is harmless.
 - A `tabColor` set on a Windows Terminal profile **overrides the theme** and pins the tab
   colour. `Invoke-TerminalColorsDoctor` reports it.
 - The opaque backdrop replaces `profiles.defaults.backgroundImage`. If you already use a
@@ -340,7 +378,7 @@ Uninstall-Module TerminalColors     # or delete the folder for a clone install
 ## Development
 
 ```powershell
-.\tests\Invoke-Tests.ps1            # 161 tests, no dependency
+.\tests\Invoke-Tests.ps1            # 190 tests, no dependency
 .\tests\Invoke-Tests.ps1 -Detailed
 ```
 
@@ -366,3 +404,4 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) to get started, and
 ## License
 
 MIT — see [LICENSE](LICENSE).
+

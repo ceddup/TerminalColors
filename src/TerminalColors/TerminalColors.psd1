@@ -1,6 +1,6 @@
 @{
     RootModule        = 'TerminalColors.psm1'
-    ModuleVersion     = '1.1.0'
+    ModuleVersion     = '1.0.0'
     GUID              = 'edd3a4ad-d99f-4b5c-8897-22fc41b4f309'
     Author            = 'Cedric Dupont'
     CompanyName       = 'Synapse Informatique'
@@ -65,9 +65,7 @@
 
             ReleaseNotes = 'Full changelog: https://github.com/ceddup/TerminalColors/blob/main/CHANGELOG.md
 
-1.1.0 - Pure colour on the tab, title bar and border without touching the pane background, thanks to the opaque backdrop (Install-TerminalColorsBackdrop) and Enable-TerminalColors -PureColor. System title bar colourable through DWM (Install-TerminalColorsTitleBar).
-
-1.0.0 - Peacock / Solution Colors / .terminalcolors.json / Git repository detection, tab and title bar colouring through a Windows Terminal theme, window border colouring through DWM.'
+1.0.0 - First release. The selected tab and the window border take the colour of the current project, in full strength, while the pane you read text in stays exactly as it was; background tabs keep their own colour and the tab row never follows the project. Colours come from .terminalcolors.json, Peacock (VS Code), Solution Colors (Visual Studio) or a stable hash of the Git repository name, nearest ancestor winning. Setup: Install-TerminalColorsTheme, Install-TerminalColorsBackdrop, Install-TerminalColorsProfile - or install.ps1 from a clone.'
         }
     }
 }

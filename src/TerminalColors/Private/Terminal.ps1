@@ -20,6 +20,9 @@ $script:TcBuiltInSchemes = @{
 $script:TcDefaultBaseBackground = '#0C0C0C'
 $script:TcBaseBackgroundCache = $null
 
+# Titles this session has set on its tab, most recent first (see Set-TcWindowTitle).
+$script:TcAppliedTitles = @()
+
 function Test-TcWindowsTerminal {
     return -not [string]::IsNullOrEmpty($env:WT_SESSION)
 }
@@ -249,7 +252,14 @@ function Set-TcWindowTitle {
     [CmdletBinding()]
     param([string] $Title)
 
-    try { $Host.UI.RawUI.WindowTitle = $Title } catch {
+    try {
+        $Host.UI.RawUI.WindowTitle = $Title
+        # Remember the last two titles we set. Windows Terminal mirrors the active
+        # tab's title onto the window title with a small delay, so right after a
+        # change the window can still be showing the previous one - which
+        # Test-TcActiveTab must not read as [this tab is not the active one].
+        $script:TcAppliedTitles = @(@($Title) + @($script:TcAppliedTitles | Select-Object -First 1))
+    } catch {
         Write-Verbose "TerminalColors: title could not be changed ($($_.Exception.Message))"
     }
 }

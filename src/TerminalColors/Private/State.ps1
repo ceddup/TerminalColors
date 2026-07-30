@@ -5,6 +5,14 @@ $script:TcLastPath = $null
 $script:TcLastKey = $null
 $script:TcLastInfo = $null
 $script:TcOriginalTitle = $null
+
+# Has this session ever coloured the window border? A session that never has must
+# not reset it: the border belongs to the window, and when several tabs start at
+# once a colourless tab would otherwise wipe the colour a sibling just applied.
+# The title check alone cannot catch this - a colourless tab restores the shell's
+# default title, which is exactly what the window shows until the active tab sets
+# its own, so the tab wrongly believes it is the visible one.
+$script:TcBorderApplied = $false
 $script:TcOptions = $null
 
 function New-TcDefaultOptions {

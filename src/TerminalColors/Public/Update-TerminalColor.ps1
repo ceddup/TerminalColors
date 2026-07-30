@@ -139,14 +139,27 @@ function Set-TcAppearance {
         Set-TcWindowTitle -Title (Format-TcTitle -Format $Options.TitleFormat -Info $effective -Path $Path)
     }
 
-    if ($Options.WindowBorder) {
-        [void](Set-TcWindowBorderColor -Rgb $Info.Rgb -IncludeCaption:([bool]$Options.CaptionColor))
+    # The window border itself comes from the theme (window.frame), not from here.
+    # This DWM call is a fallback for hosts that ignore the theme, plus the system
+    # title bar when -CaptionColor is on. The border belongs to the window, so a
+    # tab that is not the visible one must not repaint it, otherwise the tabs of a
+    # freshly opened window fight over it.
+    if ($Options.WindowBorder -and (Test-TcActiveTab) -ne $false) {
+        if (Set-TcWindowBorderColor -Rgb $Info.Rgb -IncludeCaption:([bool]$Options.CaptionColor)) {
+            $script:TcBorderApplied = $true
+        }
     }
 }
 
 function Reset-TcAppearance {
     [CmdletBinding()]
-    param([hashtable] $Options)
+    param(
+        [hashtable] $Options,
+
+        # Set for an explicit Reset-TerminalColor / Disable-TerminalColors: the
+        # user asked for it, so restore the border whatever this session did.
+        [switch] $Force
+    )
 
     if (Test-TcVtSupported) {
         Reset-TcTerminalBackground -Explicit:([bool]$Options.ExplicitReset)
@@ -156,8 +169,13 @@ function Reset-TcAppearance {
         Set-TcWindowTitle -Title $script:TcOriginalTitle
     }
 
-    if ($Options.WindowBorder) {
+    # Two guards, because erasing another tab's colour is the worst outcome here.
+    # A tab only resets the border if it is the visible one AND it is the one that
+    # coloured it in the first place - a tab that never coloured anything has
+    # nothing to restore, and would only be clobbering a sibling.
+    if ($Options.WindowBorder -and ($Force -or $script:TcBorderApplied) -and (Test-TcActiveTab) -ne $false) {
         [void](Reset-TcWindowBorderColor -IncludeCaption:([bool]$Options.CaptionColor))
+        $script:TcBorderApplied = $false
     }
 }
 
@@ -180,7 +198,7 @@ function Reset-TerminalColor {
     $options = (Get-TcOptions).Clone()
     if ($Explicit) { $options.ExplicitReset = $true }
 
-    Reset-TcAppearance -Options $options
+    Reset-TcAppearance -Options $options -Force
     $script:TcLastKey = 'none'
     $script:TcLastPath = $null
 }

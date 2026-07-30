@@ -7,8 +7,39 @@
 $script:TcThemeName = 'TerminalColors'
 
 function Get-TcThemeJson {
-    param([string] $Indent = '    ')
+    <#
+        .SYNOPSIS
+        The theme document. [tab] follows the project, [tabRow] is pinned to a
+        fixed colour - see the comment below, the asymmetry is the whole point.
+    #>
+    param(
+        [string] $Indent = '    ',
+        [string] $TabRowColor = '#0C0C0C'
+    )
 
+    # How Windows Terminal actually paints a tab, measured rather than assumed:
+    #
+    #   - the SELECTED tab is painted with its own background colour, opaquely.
+    #     A #215732 project gives exactly #215732.
+    #   - a BACKGROUND tab is composited at roughly 30 % opacity over the tab row.
+    #     Its own colour still shows through, but mixed with the row's.
+    #
+    # Hence the asymmetry below. [tab] uses terminalBackground, the only per-tab
+    # value the theme format offers, so every tab carries its own project colour.
+    # [tabRow] is pinned to a fixed colour instead of terminalBackground for two
+    # reasons: the strip itself must not take the active project's colour, and it
+    # is the base every background tab is composited over - a stable base means a
+    # background tab shows its own colour rather than 70 % of its neighbour's.
+    # With terminalBackground on the row, a plain black tab next to a #215732
+    # project came out #1A4026 and a #61DAFB one came out #347E6E: everything
+    # turned green.
+    #
+    # window.frame is what actually colours the window border. DWM is not:
+    # DwmSetWindowAttribute(DWMWA_BORDER_COLOR) returns S_OK on a Windows Terminal
+    # window and changes nothing at all - measured, colour applied straight from a
+    # test process with nothing else in between. Windows Terminal draws its own
+    # frame, so the theme is the only way in, and terminalBackground makes it
+    # follow the project exactly like the tab does.
     $lines = @(
         '{',
         '    "name": "TerminalColors",',
@@ -19,12 +50,14 @@ function Get-TcThemeJson {
         '    },',
         '    "tabRow":',
         '    {',
-        '        "background": "terminalBackground",',
-        '        "unfocusedBackground": "terminalBackground"',
+        ('        "background": "' + $TabRowColor + '",'),
+        ('        "unfocusedBackground": "' + $TabRowColor + '"'),
         '    },',
         '    "window":',
         '    {',
-        '        "applicationTheme": "system"',
+        '        "applicationTheme": "system",',
+        '        "frame": "terminalBackground",',
+        '        "unfocusedFrame": "terminalBackground"',
         '    }',
         '}'
     )
@@ -37,6 +70,36 @@ function Test-TcThemeInstalled {
     return [regex]::IsMatch($masked, '"name"\s*:\s*"TerminalColors"')
 }
 
+function Test-TcThemeUpToDate {
+    <#
+        .SYNOPSIS
+        Tells whether an installed theme is the current shape: every tab follows
+        its own project, and the tab row is pinned to a fixed colour.
+
+        A theme left over from an older version of the module fails this check, and
+        Install-TerminalColorsTheme then replaces it without the caller having to
+        pass -Force. The two shapes that matter: terminalBackground on the row
+        (background tabs borrow the active project's colour) and a missing
+        window.frame (nothing colours the border).
+    #>
+    param($Settings)
+
+    $theme = $Settings.themes | Where-Object { $_.name -eq $script:TcThemeName } | Select-Object -First 1
+    if ($null -eq $theme) { return $false }
+
+    $tab = Get-TcJsonProperty -InputObject $theme -Name 'tab'
+    $tabRow = Get-TcJsonProperty -InputObject $theme -Name 'tabRow'
+    $window = Get-TcJsonProperty -InputObject $theme -Name 'window'
+
+    $tabUnfocused = [string](Get-TcJsonProperty -InputObject $tab -Name 'unfocusedBackground')
+    $rowBackground = [string](Get-TcJsonProperty -InputObject $tabRow -Name 'background')
+    $frame = [string](Get-TcJsonProperty -InputObject $window -Name 'frame')
+
+    return (($tabUnfocused -eq 'terminalBackground') -and
+            ($rowBackground -match '^#') -and
+            ($frame -eq 'terminalBackground'))
+}
+
 function Install-TerminalColorsTheme {
     <#
         .SYNOPSIS
@@ -44,9 +107,13 @@ function Install-TerminalColorsTheme {
 
         .DESCRIPTION
         This theme is what makes the colouring visible: it tells Windows Terminal
-        to paint the tab and the title bar with the active pane's background
+        to paint the tab and the window border with the active pane's background
         colour. Since the module changes that background colour on every directory
-        change, the tab and title bar follow automatically.
+        change, both follow automatically.
+
+        The tab row - the strip the tabs sit in - is deliberately left out of that:
+        it is pinned to a fixed colour so it never takes the colour of whichever
+        project happens to be in front.
 
         settings.json is modified by targeted insertion, with a backup taken first
         and the result validated before writing.
@@ -55,14 +122,30 @@ function Install-TerminalColorsTheme {
         Path of the settings.json to modify. Detected automatically by default
         (Store, Preview, unpackaged and portable versions).
 
+        .PARAMETER TabRowColor
+        Colour of the tab row - the strip the tabs sit in, which is also the title
+        bar when the tabs are drawn inside it. Defaults to the background colour
+        declared by your profile or your colour scheme, so the strip stays the
+        colour of a plain terminal.
+
+        It is deliberately a fixed colour, never the project's: the strip must not
+        take the colour of whichever project happens to be in front, and it is the
+        base Windows Terminal composites background tabs over, so a stable base is
+        what lets each background tab show its own colour.
+
         .PARAMETER Force
-        Reinstalls the theme even when it is already present.
+        Reinstalls the theme even when it is already present. A theme left over
+        from an earlier version is upgraded automatically, without this switch.
 
         .PARAMETER NoBackup
         Does not write a backup copy.
 
         .EXAMPLE
         Install-TerminalColorsTheme
+
+        .EXAMPLE
+        Install-TerminalColorsTheme -TabRowColor '#000000'
+        Pitch-black tab row, whatever the profile's colour scheme.
 
         .EXAMPLE
         Install-TerminalColorsTheme -WhatIf
@@ -72,6 +155,7 @@ function Install-TerminalColorsTheme {
     [OutputType([pscustomobject])]
     param(
         [string] $SettingsPath,
+        [string] $TabRowColor,
         [switch] $Force,
         [switch] $NoBackup
     )
@@ -79,21 +163,38 @@ function Install-TerminalColorsTheme {
     $SettingsPath = Resolve-TcWtSettingsPath -Path $SettingsPath
 
     $text = [System.IO.File]::ReadAllText($SettingsPath)
-    if ($null -eq (ConvertFrom-TcJsonText -Text $text)) {
+    $settings = ConvertFrom-TcJsonText -Text $text
+    if ($null -eq $settings) {
         throw "TerminalColors: [$SettingsPath] is not valid JSON. Fix it before installing the theme."
     }
 
+    # --- Colour of the tab row ----------------------------------------------
+    if ($TabRowColor) {
+        $rowRgb = ConvertFrom-TcColor -Value $TabRowColor
+        if ($null -eq $rowRgb) { throw "TerminalColors: invalid tab-row colour [$TabRowColor]." }
+    } else {
+        $rowRgb = Get-TcSettingsBackground -Settings $settings -ProfileId $env:WT_PROFILE_ID
+        if ($null -eq $rowRgb) { $rowRgb = ConvertFrom-TcColor -Value $script:TcDefaultBaseBackground }
+    }
+    $rowHex = ConvertTo-TcHex -Rgb $rowRgb
+
     $alreadyInstalled = Test-TcThemeInstalled -Text $text
-    if ($alreadyInstalled -and -not $Force) {
-        Write-Verbose 'TerminalColors: theme already present, only the selection is checked.'
+
+    # A theme from an earlier version makes background tabs borrow the active
+    # project's colour: it is replaced without the caller having to ask.
+    $outdated = ($alreadyInstalled -and -not (Test-TcThemeUpToDate -Settings $settings))
+    $replace = ($Force -or $outdated)
+
+    if ($alreadyInstalled -and -not $replace) {
+        Write-Verbose 'TerminalColors: theme already present and current, only the selection is checked.'
     }
 
     $newText = $text
     $masked = Get-TcMaskedJson -Text $newText
     $changes = @()
 
-    # --- 1. Remove a previous version of the theme when -Force --------------
-    if ($alreadyInstalled -and $Force) {
+    # --- 1. Remove a previous version of the theme --------------------------
+    if ($alreadyInstalled -and $replace) {
         $m = [regex]::Match($masked, '"name"\s*:\s*"TerminalColors"')
         $span = Find-TcJsonObjectSpan -Text $masked -Index $m.Index
         if ($span) {
@@ -111,14 +212,18 @@ function Install-TerminalColorsTheme {
             }
             $newText = $newText.Remove($start, $end - $start + 1)
             $masked = Get-TcMaskedJson -Text $newText
-            $changes += 'previous theme removed'
+            if ($outdated -and -not $Force) {
+                $changes += 'theme from an earlier version upgraded'
+            } else {
+                $changes += 'previous theme removed'
+            }
             $alreadyInstalled = $false
         }
     }
 
     # --- 2. Insert the theme into the "themes" array ------------------------
     if (-not $alreadyInstalled) {
-        $themeJson = Get-TcThemeJson
+        $themeJson = Get-TcThemeJson -TabRowColor $rowHex
         $m = [regex]::Match($masked, '"themes"\s*:\s*\[')
         if ($m.Success) {
             $insertAt = $m.Index + $m.Length
@@ -161,10 +266,11 @@ function Install-TerminalColorsTheme {
     if ($changes.Count -eq 0) {
         Write-Verbose 'TerminalColors: nothing to change.'
         return [pscustomobject]@{
-            SettingsPath = $SettingsPath
-            Changed      = $false
-            Changes      = @()
-            Backup       = $null
+            SettingsPath      = $SettingsPath
+            Changed           = $false
+            Changes           = @()
+            TabRowColor       = $rowHex
+            Backup            = $null
         }
     }
 
@@ -179,6 +285,9 @@ function Install-TerminalColorsTheme {
     if (-not ($parsed.themes | Where-Object { $_.name -eq $script:TcThemeName })) {
         throw 'TerminalColors: verification failed (theme missing from the list). Nothing was written.'
     }
+    if (-not (Test-TcThemeUpToDate -Settings $parsed)) {
+        throw 'TerminalColors: verification failed (tabs would not each carry their own colour, or the tab row would follow the active project). Nothing was written.'
+    }
 
     $backupPath = $null
     if ($PSCmdlet.ShouldProcess($SettingsPath, "Install the TerminalColors theme ($($changes -join ', '))")) {
@@ -190,6 +299,7 @@ function Install-TerminalColorsTheme {
         SettingsPath = $SettingsPath
         Changed      = $true
         Changes      = $changes
+        TabRowColor  = $rowHex
         Backup       = $backupPath
     }
 }

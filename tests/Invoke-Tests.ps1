@@ -689,8 +689,151 @@ try {
         $theme = @($parsed.themes | Where-Object { $_.name -eq 'TerminalColors' })
         Assert-Equal 1 $theme.Count
         Assert-Equal 'terminalBackground' ([string]$theme[0].tab.background)
-        Assert-Equal 'terminalBackground' ([string]$theme[0].tab.unfocusedBackground)
-        Assert-Equal 'terminalBackground' ([string]$theme[0].tabRow.background)
+    }
+
+    # Measured behaviour of Windows Terminal: the SELECTED tab is painted with its
+    # own background colour opaquely, while a BACKGROUND tab is composited at about
+    # 30 % opacity over the tab row. So [tab] must follow the project - it is the
+    # only per-tab value available - and the row must be a fixed colour, both so
+    # the strip does not take the active project's colour and so background tabs
+    # are composited over a stable base instead of their neighbour's colour.
+    Test-It 'every tab follows its own project, selected or not' {
+        $parsed = Get-ParsedJson ([System.IO.File]::ReadAllText((Join-Path $sandbox 'wt\case1\settings.json')))
+        $theme = @($parsed.themes | Where-Object { $_.name -eq 'TerminalColors' })[0]
+        Assert-Equal 'terminalBackground' ([string]$theme.tab.background)
+        Assert-Equal 'terminalBackground' ([string]$theme.tab.unfocusedBackground)
+    }
+
+    Test-It 'the tab row is a fixed colour, never the project''s' {
+        $parsed = Get-ParsedJson ([System.IO.File]::ReadAllText((Join-Path $sandbox 'wt\case1\settings.json')))
+        $theme = @($parsed.themes | Where-Object { $_.name -eq 'TerminalColors' })[0]
+        foreach ($key in 'background', 'unfocusedBackground') {
+            $value = [string]$theme.tabRow.$key
+            Assert-True ($value -match '^#[0-9A-Fa-f]{6}$') "tabRow.$key expected a fixed colour, got [$value]"
+        }
+    }
+
+    # DwmSetWindowAttribute(DWMWA_BORDER_COLOR) returns S_OK on a Windows Terminal
+    # window and changes nothing - measured. The theme is the only way in.
+    Test-It 'the window border follows the project through window.frame' {
+        $parsed = Get-ParsedJson ([System.IO.File]::ReadAllText((Join-Path $sandbox 'wt\case1\settings.json')))
+        $theme = @($parsed.themes | Where-Object { $_.name -eq 'TerminalColors' })[0]
+        Assert-Equal 'terminalBackground' ([string]$theme.window.frame)
+        Assert-Equal 'terminalBackground' ([string]$theme.window.unfocusedFrame)
+    }
+
+    Test-It 'a theme without window.frame counts as outdated' {
+        $path = New-Fixture 'wt\noframe\settings.json' @'
+{
+    "theme": "TerminalColors",
+    "themes":
+    [
+        {
+            "name": "TerminalColors",
+            "tab": { "background": "terminalBackground", "unfocusedBackground": "terminalBackground" },
+            "tabRow": { "background": "#0C0C0C", "unfocusedBackground": "#0C0C0C" },
+            "window": { "applicationTheme": "system" }
+        }
+    ]
+}
+'@
+        $r = Install-TerminalColorsTheme -SettingsPath $path -Confirm:$false
+        Assert-True $r.Changed 'a theme that cannot colour the border must be replaced'
+        $parsed = Get-ParsedJson ([System.IO.File]::ReadAllText($path))
+        $theme = @($parsed.themes | Where-Object { $_.name -eq 'TerminalColors' })[0]
+        Assert-Equal 'terminalBackground' ([string]$theme.window.frame)
+    }
+
+    Test-It 'the tab-row colour comes from the profile''s colour scheme' {
+        $path = New-Fixture 'wt\tabrow\settings.json' @'
+{
+    "defaultProfile": "{aaa}",
+    "profiles": { "defaults": {}, "list": [ { "guid": "{aaa}", "name": "PS", "colorScheme": "MyScheme" } ] },
+    "schemes": [ { "name": "MyScheme", "background": "#102030" } ],
+    "themes": []
+}
+'@
+        $r = Install-TerminalColorsTheme -SettingsPath $path -Confirm:$false
+        Assert-Equal '#102030' $r.TabRowColor
+        $parsed = Get-ParsedJson ([System.IO.File]::ReadAllText($path))
+        $theme = @($parsed.themes | Where-Object { $_.name -eq 'TerminalColors' })[0]
+        Assert-Equal '#102030' ([string]$theme.tabRow.background)
+        Assert-Equal '#102030' ([string]$theme.tabRow.unfocusedBackground)
+    }
+
+    Test-It '-TabRowColor imposes the tab-row colour' {
+        $path = New-Fixture 'wt\tabrow2\settings.json' $wtSample
+        $r = Install-TerminalColorsTheme -SettingsPath $path -TabRowColor 'Black' -Confirm:$false
+        Assert-Equal '#000000' $r.TabRowColor
+        $parsed = Get-ParsedJson ([System.IO.File]::ReadAllText($path))
+        $theme = @($parsed.themes | Where-Object { $_.name -eq 'TerminalColors' })[0]
+        Assert-Equal '#000000' ([string]$theme.tabRow.background)
+    }
+
+    Test-It 'invalid -TabRowColor refused without modification' {
+        $path = New-Fixture 'wt\tabrow3\settings.json' $wtSample
+        $before = [System.IO.File]::ReadAllText($path)
+        $threw = $false
+        try { Install-TerminalColorsTheme -SettingsPath $path -TabRowColor 'not-a-colour' -Confirm:$false | Out-Null } catch { $threw = $true }
+        Assert-True $threw 'an error must be raised'
+        Assert-Equal $before ([System.IO.File]::ReadAllText($path))
+    }
+
+    Test-It 'a theme with terminalBackground on the row is upgraded without -Force' {
+        # That shape made background tabs borrow the active project's colour.
+        $path = New-Fixture 'wt\legacyrow\settings.json' @'
+{
+    "theme": "TerminalColors",
+    "themes":
+    [
+        {
+            "name": "TerminalColors",
+            "tab": { "background": "terminalBackground", "unfocusedBackground": "terminalBackground" },
+            "tabRow": { "background": "terminalBackground", "unfocusedBackground": "terminalBackground" }
+        }
+    ]
+}
+'@
+        $r = Install-TerminalColorsTheme -SettingsPath $path -Confirm:$false
+        Assert-True $r.Changed 'an outdated theme must be replaced even without -Force'
+
+        $parsed = Get-ParsedJson ([System.IO.File]::ReadAllText($path))
+        Assert-NotNull $parsed
+        Assert-Equal 1 @($parsed.themes | Where-Object { $_.name -eq 'TerminalColors' }).Count
+        $theme = @($parsed.themes | Where-Object { $_.name -eq 'TerminalColors' })[0]
+        Assert-Equal 'terminalBackground' ([string]$theme.tab.unfocusedBackground)
+        Assert-True ([string]$theme.tabRow.background -match '^#') 'the row must be pinned'
+    }
+
+    Test-It 'a theme with pinned tabs is upgraded without -Force' {
+        # Pinning the tabs instead of the row cost them their own colour.
+        $path = New-Fixture 'wt\legacytabs\settings.json' @'
+{
+    "theme": "TerminalColors",
+    "themes":
+    [
+        {
+            "name": "TerminalColors",
+            "tab": { "background": "terminalBackground", "unfocusedBackground": "#0C0C0C" },
+            "tabRow": { "background": "terminalBackground", "unfocusedBackground": "terminalBackground" }
+        }
+    ]
+}
+'@
+        $r = Install-TerminalColorsTheme -SettingsPath $path -Confirm:$false
+        Assert-True $r.Changed
+        $parsed = Get-ParsedJson ([System.IO.File]::ReadAllText($path))
+        $theme = @($parsed.themes | Where-Object { $_.name -eq 'TerminalColors' })[0]
+        Assert-Equal 'terminalBackground' ([string]$theme.tab.unfocusedBackground)
+        Assert-True ([string]$theme.tabRow.background -match '^#') 'the row must be pinned'
+    }
+
+    Test-It 'an up-to-date theme is left alone' {
+        $path = Join-Path $sandbox 'wt\legacytabs\settings.json'
+        $before = [System.IO.File]::ReadAllText($path)
+        $r = Install-TerminalColorsTheme -SettingsPath $path -Confirm:$false
+        Assert-True (-not $r.Changed) 'nothing to change on a second run'
+        Assert-Equal $before ([System.IO.File]::ReadAllText($path))
     }
 
     Test-It 'comments, profiles and other keys preserved' {
@@ -1218,6 +1361,194 @@ try {
     Test-It 'in pure colour, the reference background plays no part' {
         $p = Join-Path $sandbox 'pure\projet'
         Assert-Equal '#215732' (Get-EffectiveBackgroundHex -Path $p -PureColor $true -Base '#FFFFFF')
+    }
+
+    # ======================================================================
+    Write-Section 'Border: only the visible tab drives it'
+
+    # The border belongs to the window, not to the tab. Without a guard every tab
+    # repaints it on its first prompt - and since those prompts race each other
+    # while a window opens, a colourless tab can win and leave a grey border on a
+    # window whose visible tab belongs to a project.
+    function Test-TitleMatch {
+        param([string] $WindowTitle, [string[]] $Candidates)
+        & $m { param($w, $c) Test-TcTitleMatchesWindow -WindowTitle $w -Candidates $c } $WindowTitle $Candidates
+    }
+
+    Test-It 'the visible tab is recognised by its title' {
+        Assert-Equal $true (Test-TitleMatch -WindowTitle 'ZZ oseille' -Candidates @('ZZ oseille'))
+    }
+
+    Test-It 'a background tab is recognised as such' {
+        Assert-Equal $false (Test-TitleMatch -WindowTitle 'ZZ pastel' -Candidates @('ZZ oseille'))
+    }
+
+    Test-It 'the previous title is tolerated: WT propagates asynchronously' {
+        # Right after a cd the window may still show the former title; the visible
+        # tab must not be mistaken for a background one.
+        Assert-Equal $true (Test-TitleMatch -WindowTitle 'ZZ former' -Candidates @('ZZ current', 'ZZ former'))
+    }
+
+    Test-It 'empty window title: undecidable, not a refusal' {
+        Assert-Null (Test-TitleMatch -WindowTitle '' -Candidates @('ZZ oseille'))
+    }
+
+    Test-It 'no title of our own: undecidable, not a refusal' {
+        # The -NoTitle case: we cannot tell, so we must not block the border.
+        Assert-Null (Test-TitleMatch -WindowTitle 'Windows PowerShell' -Candidates @('', $null))
+    }
+
+    Test-It 'applied titles are remembered, the last two only' {
+        $titles = & $m {
+            $saved = $script:TcAppliedTitles
+            try {
+                $script:TcAppliedTitles = @()
+                Set-TcWindowTitle -Title 'TC-TEST-1'
+                Set-TcWindowTitle -Title 'TC-TEST-2'
+                Set-TcWindowTitle -Title 'TC-TEST-3'
+                return @($script:TcAppliedTitles)
+            } finally { $script:TcAppliedTitles = $saved }
+        }
+        Assert-Equal 2 $titles.Count 'only the last two titles are of any use'
+        Assert-Equal 'TC-TEST-3' $titles[0]
+        Assert-Equal 'TC-TEST-2' $titles[1]
+    }
+
+    # A single Windows Terminal process exposes several windows of the same class
+    # carrying the same title: the real ones, plus hidden placeholders parked at
+    # -32000,-32000. Colouring a placeholder succeeds and shows nothing, so the
+    # real window has to be told apart by geometry first.
+    function Select-Window {
+        param([object[]] $Candidates, [string] $Title)
+        & $m { param($c, $t) Select-TcTerminalWindow -Candidates $c -Title $t } $Candidates $Title
+    }
+
+    function New-WindowCandidate {
+        param([int] $Handle, [int] $Left, [int] $Top, [int] $Width, [int] $Height, [string] $Title)
+        [pscustomobject]@{ Handle = $Handle; Left = $Left; Top = $Top; Width = $Width; Height = $Height; Title = $Title }
+    }
+
+    Test-It 'hidden placeholders are discarded, the real window wins' {
+        $candidates = @(
+            New-WindowCandidate -Handle 1 -Left -32000 -Top -32000 -Width 160 -Height 28 -Title 'ZZ oseille'
+            New-WindowCandidate -Handle 2 -Left 304 -Top 312 -Width 1129 -Height 635 -Title 'ZZ oseille'
+            New-WindowCandidate -Handle 3 -Left -32000 -Top -32000 -Width 160 -Height 28 -Title 'ZZ oseille'
+        )
+        Assert-Equal 2 (Select-Window -Candidates $candidates -Title 'ZZ oseille')
+    }
+
+    Test-It 'a placeholder is discarded even when listed first and titled alike' {
+        # The old code took the first candidate, so it could land on this one.
+        $candidates = @(
+            New-WindowCandidate -Handle 9 -Left -32000 -Top -32000 -Width 160 -Height 28 -Title 'ZZ oseille'
+            New-WindowCandidate -Handle 4 -Left 10 -Top 10 -Width 800 -Height 400 -Title 'ZZ oseille'
+        )
+        Assert-Equal 4 (Select-Window -Candidates $candidates -Title 'ZZ oseille')
+    }
+
+    Test-It 'among several real windows the title decides' {
+        $candidates = @(
+            New-WindowCandidate -Handle 5 -Left 0 -Top 0 -Width 1200 -Height 700 -Title 'ZZ pastel'
+            New-WindowCandidate -Handle 6 -Left 40 -Top 40 -Width 900 -Height 500 -Title 'ZZ oseille'
+        )
+        Assert-Equal 6 (Select-Window -Candidates $candidates -Title 'ZZ oseille') 'the title must win over size'
+    }
+
+    Test-It 'no usable title: the largest real window is taken' {
+        $candidates = @(
+            New-WindowCandidate -Handle 7 -Left 0 -Top 0 -Width 600 -Height 400 -Title 'other'
+            New-WindowCandidate -Handle 8 -Left 40 -Top 40 -Width 1200 -Height 700 -Title 'other'
+        )
+        Assert-Equal 8 (Select-Window -Candidates $candidates -Title '')
+    }
+
+    Test-It 'several windows share the title: the largest of those is taken' {
+        $candidates = @(
+            New-WindowCandidate -Handle 10 -Left 0 -Top 0 -Width 600 -Height 400 -Title 'ZZ oseille'
+            New-WindowCandidate -Handle 11 -Left 40 -Top 40 -Width 1200 -Height 700 -Title 'ZZ oseille'
+            New-WindowCandidate -Handle 12 -Left 80 -Top 80 -Width 1400 -Height 800 -Title 'ZZ pastel'
+        )
+        Assert-Equal 11 (Select-Window -Candidates $candidates -Title 'ZZ oseille')
+    }
+
+    Test-It 'placeholders only: nothing is chosen' {
+        $candidates = @(
+            New-WindowCandidate -Handle 13 -Left -32000 -Top -32000 -Width 160 -Height 28 -Title 'ZZ oseille'
+        )
+        Assert-Null (Select-Window -Candidates $candidates -Title 'ZZ oseille') 'better no window than an invisible one'
+    }
+
+    Test-It 'no candidate at all: nothing is chosen' {
+        Assert-Null (Select-Window -Candidates @() -Title 'ZZ oseille')
+    }
+
+    # $Apply / $Reset record what Set-TcAppearance and Reset-TcAppearance actually
+    # asked of the border, with the DWM calls stubbed out.
+    function Measure-BorderCalls {
+        param($ActiveTab, [switch] $SkipApply, [switch] $SkipReset, [switch] $ForceReset)
+        & $m { param($active, $skipApply, $skipReset, $forceReset)
+            $savedActive = ${function:Test-TcActiveTab}
+            $savedSet = ${function:Set-TcWindowBorderColor}
+            $savedReset = ${function:Reset-TcWindowBorderColor}
+            $savedFlag = $script:TcBorderApplied
+            try {
+                $script:TcApplyCalls = 0
+                $script:TcResetCalls = 0
+                $script:TcBorderApplied = $false
+                Set-Item -Path function:script:Test-TcActiveTab -Value ([scriptblock]::Create("return `$$active"))
+                Set-Item -Path function:script:Set-TcWindowBorderColor -Value { param($Rgb, [switch] $IncludeCaption) $script:TcApplyCalls++; return $true }
+                Set-Item -Path function:script:Reset-TcWindowBorderColor -Value { param([switch] $IncludeCaption) $script:TcResetCalls++; return $true }
+
+                $options = New-TcDefaultOptions
+                $options.SetTitle = $false
+                $info = [pscustomobject]@{ Color = '#215732'; Rgb = (ConvertFrom-TcColor -Value '#215732'); Name = 'x'; Icon = ''; Tint = $null }
+                if (-not $skipApply) { Set-TcAppearance -Info $info -Path 'C:\x' -Options $options }
+                if (-not $skipReset) { Reset-TcAppearance -Options $options -Force:$forceReset }
+                return [pscustomobject]@{ Apply = $script:TcApplyCalls; Reset = $script:TcResetCalls }
+            } finally {
+                Set-Item -Path function:script:Test-TcActiveTab -Value $savedActive
+                Set-Item -Path function:script:Set-TcWindowBorderColor -Value $savedSet
+                Set-Item -Path function:script:Reset-TcWindowBorderColor -Value $savedReset
+                $script:TcBorderApplied = $savedFlag
+            }
+        } $ActiveTab ([bool]$SkipApply) ([bool]$SkipReset) ([bool]$ForceReset)
+    }
+
+    Test-It 'a background tab never touches the border' {
+        $r = Measure-BorderCalls -ActiveTab 'false'
+        Assert-Equal 0 $r.Apply 'no colour applied from a background tab'
+        Assert-Equal 0 $r.Reset 'no reset from a background tab'
+    }
+
+    Test-It 'the visible tab drives the border' {
+        $r = Measure-BorderCalls -ActiveTab 'true'
+        Assert-Equal 1 $r.Apply
+        Assert-Equal 1 $r.Reset
+    }
+
+    Test-It 'undecidable state: the border is still driven' {
+        $r = Measure-BorderCalls -ActiveTab 'null' -SkipReset
+        Assert-Equal 1 $r.Apply 'without certainty, keep the original behaviour'
+    }
+
+    # The decisive case. Several tabs open at once: a colourless tab restores the
+    # shell's default title, which is also what the window shows until the active
+    # tab sets its own, so the title check believes it is the visible one. Only
+    # [have I ever coloured the border?] catches it.
+    Test-It 'a tab that never coloured the border does not reset it' {
+        $r = Measure-BorderCalls -ActiveTab 'true' -SkipApply
+        Assert-Equal 0 $r.Reset 'nothing of ours to restore, so nothing to clobber'
+    }
+
+    Test-It 'an explicit Reset-TerminalColor restores it anyway' {
+        $r = Measure-BorderCalls -ActiveTab 'true' -SkipApply -ForceReset
+        Assert-Equal 1 $r.Reset 'the user asked for it explicitly'
+    }
+
+    Test-It 'leaving a project does reset the border it had applied' {
+        $r = Measure-BorderCalls -ActiveTab 'true'
+        Assert-Equal 1 $r.Apply
+        Assert-Equal 1 $r.Reset 'this session coloured it, so it restores it'
     }
 
     # ======================================================================
