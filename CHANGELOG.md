@@ -13,8 +13,8 @@ First release.
 
 - **Automatic Windows Terminal colouring based on the current directory.** The selected tab
   and the window border take the project colour at full strength, while the pane you read
-  text in stays exactly as it was. Background tabs keep their own colour, and the tab row
-  never follows the project.
+  text in stays exactly as it was. Background tabs keep their own colour, and the tab row is
+  not touched at all — it looks the same whether the module is installed or not.
 - **Four colour sources**, nearest ancestor in the tree winning, the same way
   `.editorconfig` does: `.terminalcolors.json`, Peacock's `peacock.color` (VS Code),
   Solution Colors' `.vs/<Solution>/color.txt` (Visual Studio), and a colour derived from
@@ -30,7 +30,9 @@ First release.
 - `Install-TerminalColorsTheme`: installs and selects the Windows Terminal theme that binds
   the tab and the border to the pane background. `settings.json` is edited by targeted
   insertion — comments, key order and formatting are preserved — with a backup, validation
-  before writing, and `-WhatIf`. `-TabRowColor` chooses the colour the tab row is pinned to.
+  before writing, and `-WhatIf`. The tab row is left to Windows Terminal; `-TabRowColor` pins
+  it to a fixed colour for anyone who wants one, and `-ApplicationTheme` overrides the light
+  or dark chrome otherwise inherited from the theme being replaced.
 - `Install-TerminalColorsBackdrop`: lays an opaque image of your usual background colour
   over the pane, so `OSC 11` can carry the *pure* project colour without making the text
   unreadable. This is what decouples "tab colour" from "background colour", which the theme
@@ -57,7 +59,7 @@ First release.
 - `install.ps1`, for installing from a clone: copies the module into your user modules for
   every PowerShell edition present, then calls `Install-TerminalColors`. Same switches.
 - bash / zsh variant for Git Bash and WSL, with verified parity on automatic colours.
-- 200 tests with no external dependency, running on Windows PowerShell 5.1 and PowerShell 7.
+- 203 tests with no external dependency, running on Windows PowerShell 5.1 and PowerShell 7.
 
 ### Notes on how it works
 
@@ -65,10 +67,11 @@ Three findings from measuring Windows Terminal rather than trusting the document
 of which shaped the design:
 
 - The **selected** tab is painted with its own background colour opaquely, while a
-  **background** tab is composited at roughly 30 % opacity over the tab row. The tab row is
-  therefore pinned to a fixed colour: that is what lets each background tab show its own
-  colour instead of 70 % of its neighbour's, and it keeps the strip from following whichever
-  project is in front.
+  **background** tab is composited at roughly 30 % opacity over the tab row. The row must
+  therefore not follow the project — that is what lets each background tab show its own
+  colour instead of 70 % of its neighbour's. Any stable colour does it, so the theme declares
+  nothing for the row and Windows Terminal keeps painting it, exactly as its own built-in
+  themes leave it alone.
 - `DwmSetWindowAttribute(DWMWA_BORDER_COLOR)` **returns `S_OK` on a Windows Terminal window
   and changes nothing** — Windows Terminal draws its own frame. The border is coloured by
   the theme, through `window.frame`, which accepts `terminalBackground` and therefore

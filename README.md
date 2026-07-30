@@ -39,8 +39,9 @@ The project colour lands **pure** on the selected tab and on the border, while t
 actually read text in stays exactly as it was. That decoupling is what the opaque backdrop
 is for — see [How it works](#how-it-works).
 
-The tab row, on the other hand, **never changes colour**: it is pinned to your terminal's
-own background so it does not take the colour of whichever project happens to be in front.
+The tab row, on the other hand, **is not touched at all**: it keeps the colour Windows
+Terminal gives it, so it never takes the colour of whichever project is in front — and it
+looks exactly the same whether this module is installed or not.
 
 ---
 
@@ -227,9 +228,9 @@ Windows Terminal then copies each pane's background colour onto its own tab and 
 window border. This is what makes the colour visible where it matters, with no extra
 process — and why the theme is mandatory.
 
-The tab row is deliberately left out: it is pinned to a fixed colour so the strip never
-takes the colour of whichever project is in front. See below — that pinning is also what
-lets background tabs keep their own colour.
+The tab row is deliberately left out, and left untouched: the theme declares nothing for it,
+so Windows Terminal keeps painting it as it always did. See below — a row that does not
+follow the project is also what lets background tabs keep their own colour.
 
 **3. The opaque backdrop** solves the problem those two create together. A theme accepts
 only four values for `tab.background`: `terminalBackground`, `accent`, a fixed colour,
@@ -259,7 +260,7 @@ applied — when several tabs start at once, a colourless tab restores the shell
 title, which is exactly what the window shows until the active tab sets its own, so the title
 alone is not enough to tell them apart.
 
-### Why the tab row is pinned and the tabs are not
+### Why the tab row is left alone and the tabs are not
 
 Measured, not assumed: the **selected** tab is painted with its own background colour
 opaquely, while a **background** tab is composited at roughly 30 % opacity over the tab row.
@@ -267,11 +268,20 @@ opaquely, while a **background** tab is composited at roughly 30 % opacity over 
 So the row is the base every background tab is mixed into. When the row carried the active
 project's colour, background tabs borrowed 70 % of it — a plain black tab next to a
 `#215732` project measured `#1A4026`, and a `#61DAFB` one measured `#347E6E`: everything
-turned green. Pinning the row to a fixed colour fixes that at the source, and it is also
-what you want visually, since the strip then never follows whichever project is in front.
+turned green. What fixes that is simply that the row must not follow the project; **any**
+stable colour will do.
+
+So the theme declares nothing at all for the row, exactly as Windows Terminal's own
+built-in themes don't — `light`, `dark` and `system` set no `tabRow.background` either. The
+strip keeps the colour Windows Terminal gives it, and installing this module changes
+nothing about it. `-TabRowColor` pins it if you actually want a specific colour.
+
+What the theme *does* carry over is `window.applicationTheme`, the chrome's light or dark
+identity, taken from the theme it replaces. Selecting a theme replaces the previous one
+wholesale, so without that the strip would flip on a Windows set to the other mode.
 
 The consequence to know about: a background tab shows a **muted** version of its own colour,
-not the full one. `#61DAFB` over a pinned `#0C0C0C` row comes out `#254953`. Windows Terminal
+not the full one. `#61DAFB` over a dark `#0C0C0C` row comes out `#254953`. Windows Terminal
 offers no per-tab value that is painted opaquely, so there is no way around it.
 
 The prompt hook wraps your existing `prompt` function (oh-my-posh, Starship or your
@@ -313,7 +323,7 @@ In all three cases `Invoke-TerminalColorsDoctor` names the problem and the fix.
 
 - **A background tab shows a muted version of its colour**, not the full one — Windows
   Terminal composites it at about 30 % opacity over the tab row, and offers no per-tab value
-  that is painted opaquely. `#61DAFB` over a pinned `#0C0C0C` row comes out `#254953`. The
+  that is painted opaquely. `#61DAFB` over a dark `#0C0C0C` row comes out `#254953`. The
   selected tab and the window border carry the exact project colour.
 - **The window border is one pixel wide.** Windows sets that thickness, and neither the theme
   nor `DwmSetWindowAttribute` exposes a width. If you want a large coloured surface,
@@ -402,7 +412,7 @@ Disable-TerminalColors              # restore the current session's appearance
 ## Development
 
 ```powershell
-.\tests\Invoke-Tests.ps1            # 200 tests, no dependency
+.\tests\Invoke-Tests.ps1            # 203 tests, no dependency
 .\tests\Invoke-Tests.ps1 -Detailed
 ```
 

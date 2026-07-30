@@ -694,9 +694,12 @@ try {
     # Measured behaviour of Windows Terminal: the SELECTED tab is painted with its
     # own background colour opaquely, while a BACKGROUND tab is composited at about
     # 30 % opacity over the tab row. So [tab] must follow the project - it is the
-    # only per-tab value available - and the row must be a fixed colour, both so
-    # the strip does not take the active project's colour and so background tabs
-    # are composited over a stable base instead of their neighbour's colour.
+    # only per-tab value available - and the row must NOT, both so the strip does
+    # not take the active project's colour and so background tabs are composited
+    # over a stable base instead of their neighbour's colour.
+    #
+    # Any stable colour satisfies that, so the row is left out of the theme
+    # entirely, exactly as Windows Terminal's own built-in themes do.
     Test-It 'every tab follows its own project, selected or not' {
         $parsed = Get-ParsedJson ([System.IO.File]::ReadAllText((Join-Path $sandbox 'wt\case1\settings.json')))
         $theme = @($parsed.themes | Where-Object { $_.name -eq 'TerminalColors' })[0]
@@ -704,13 +707,42 @@ try {
         Assert-Equal 'terminalBackground' ([string]$theme.tab.unfocusedBackground)
     }
 
-    Test-It 'the tab row is a fixed colour, never the project''s' {
+    Test-It 'the tab row is left to Windows Terminal, untouched' {
+        # Installing must not change the strip at all: it used to be pinned to the
+        # terminal background, which turned it black on a machine whose chrome was
+        # a lighter grey - a visible change to something the module has no reason
+        # to own.
         $parsed = Get-ParsedJson ([System.IO.File]::ReadAllText((Join-Path $sandbox 'wt\case1\settings.json')))
         $theme = @($parsed.themes | Where-Object { $_.name -eq 'TerminalColors' })[0]
-        foreach ($key in 'background', 'unfocusedBackground') {
-            $value = [string]$theme.tabRow.$key
-            Assert-True ($value -match '^#[0-9A-Fa-f]{6}$') "tabRow.$key expected a fixed colour, got [$value]"
+        Assert-Null $theme.tabRow 'the theme must declare no tabRow at all'
+    }
+
+    Test-It 'the chrome keeps the light or dark identity it had' {
+        # A theme replaces the selected one wholesale, so window.applicationTheme
+        # has to be carried over: without it, "system" on a Windows set to light
+        # turned the strip light the moment the module was installed.
+        foreach ($case in @(
+            @{ Before = '"dark"'; Expected = 'dark' }
+            @{ Before = '"light"'; Expected = 'light' }
+            @{ Before = '"system"'; Expected = 'system' }
+            @{ Before = '{ "dark": "dark", "light": "light" }'; Expected = 'system' }
+        )) {
+            $name = 'wt\chrome' + $case.Expected + $case.Before.Length + '\settings.json'
+            $path = New-Fixture $name ('{' + [Environment]::NewLine +
+                '    "theme": ' + $case.Before + ',' + [Environment]::NewLine +
+                '    "themes": []' + [Environment]::NewLine + '}')
+            $r = Install-TerminalColorsTheme -SettingsPath $path -Confirm:$false
+            Assert-Equal $case.Expected $r.ApplicationTheme "coming from $($case.Before)"
+            $parsed = Get-ParsedJson ([System.IO.File]::ReadAllText($path))
+            $theme = @($parsed.themes | Where-Object { $_.name -eq 'TerminalColors' })[0]
+            Assert-Equal $case.Expected ([string]$theme.window.applicationTheme) "written for $($case.Before)"
         }
+    }
+
+    Test-It '-ApplicationTheme overrides what was inherited' {
+        $path = New-Fixture 'wt\chromeforced\settings.json' '{ "theme": "light", "themes": [] }'
+        $r = Install-TerminalColorsTheme -SettingsPath $path -ApplicationTheme dark -Confirm:$false
+        Assert-Equal 'dark' $r.ApplicationTheme
     }
 
     # DwmSetWindowAttribute(DWMWA_BORDER_COLOR) returns S_OK on a Windows Terminal
@@ -744,7 +776,10 @@ try {
         Assert-Equal 'terminalBackground' ([string]$theme.window.frame)
     }
 
-    Test-It 'the tab-row colour comes from the profile''s colour scheme' {
+    Test-It 'the colour scheme no longer decides the tab row' {
+        # It used to: the row was pinned to the profile's background, here #102030.
+        # That is what made the strip change colour on install, so nothing is
+        # written for it any more unless -TabRowColor asks.
         $path = New-Fixture 'wt\tabrow\settings.json' @'
 {
     "defaultProfile": "{aaa}",
@@ -754,17 +789,28 @@ try {
 }
 '@
         $r = Install-TerminalColorsTheme -SettingsPath $path -Confirm:$false
-        Assert-Equal '#102030' $r.TabRowColor
+        Assert-Null $r.TabRowColor 'nothing is pinned unless asked for'
         $parsed = Get-ParsedJson ([System.IO.File]::ReadAllText($path))
         $theme = @($parsed.themes | Where-Object { $_.name -eq 'TerminalColors' })[0]
-        Assert-Equal '#102030' ([string]$theme.tabRow.background)
-        Assert-Equal '#102030' ([string]$theme.tabRow.unfocusedBackground)
+        Assert-Null $theme.tabRow 'the row must be left to Windows Terminal'
     }
 
     Test-It '-TabRowColor imposes the tab-row colour' {
         $path = New-Fixture 'wt\tabrow2\settings.json' $wtSample
         $r = Install-TerminalColorsTheme -SettingsPath $path -TabRowColor 'Black' -Confirm:$false
         Assert-Equal '#000000' $r.TabRowColor
+        $parsed = Get-ParsedJson ([System.IO.File]::ReadAllText($path))
+        $theme = @($parsed.themes | Where-Object { $_.name -eq 'TerminalColors' })[0]
+        Assert-Equal '#000000' ([string]$theme.tabRow.background)
+    }
+
+    Test-It 'a pinned tab row survives a plain reinstall' {
+        # A pinned row is a deliberate choice, not the broken shape the upgrade
+        # check hunts for, so a later install without -TabRowColor must not quietly
+        # take it away.
+        $path = Join-Path $sandbox 'wt\tabrow2\settings.json'
+        $r = Install-TerminalColorsTheme -SettingsPath $path -Confirm:$false
+        Assert-True (-not $r.Changed) 'the theme must count as up to date'
         $parsed = Get-ParsedJson ([System.IO.File]::ReadAllText($path))
         $theme = @($parsed.themes | Where-Object { $_.name -eq 'TerminalColors' })[0]
         Assert-Equal '#000000' ([string]$theme.tabRow.background)
@@ -802,7 +848,7 @@ try {
         Assert-Equal 1 @($parsed.themes | Where-Object { $_.name -eq 'TerminalColors' }).Count
         $theme = @($parsed.themes | Where-Object { $_.name -eq 'TerminalColors' })[0]
         Assert-Equal 'terminalBackground' ([string]$theme.tab.unfocusedBackground)
-        Assert-True ([string]$theme.tabRow.background -match '^#') 'the row must be pinned'
+        Assert-True ([string]$theme.tabRow.background -ne 'terminalBackground') 'the row must not follow the project'
     }
 
     Test-It 'a theme with pinned tabs is upgraded without -Force' {
@@ -825,7 +871,7 @@ try {
         $parsed = Get-ParsedJson ([System.IO.File]::ReadAllText($path))
         $theme = @($parsed.themes | Where-Object { $_.name -eq 'TerminalColors' })[0]
         Assert-Equal 'terminalBackground' ([string]$theme.tab.unfocusedBackground)
-        Assert-True ([string]$theme.tabRow.background -match '^#') 'the row must be pinned'
+        Assert-True ([string]$theme.tabRow.background -ne 'terminalBackground') 'the row must not follow the project'
     }
 
     Test-It 'an up-to-date theme is left alone' {

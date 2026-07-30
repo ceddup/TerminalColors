@@ -39,8 +39,9 @@ La couleur du projet arrive **pure** sur l'onglet sélectionné et sur la bordur
 le volet dans lequel vous lisez du texte reste exactement tel qu'il était. C'est le rôle du
 calque opaque — voir [Comment ça marche](#comment-ça-marche).
 
-En revanche, **la bande d'onglets ne change jamais de couleur** : elle est épinglée à la
-couleur de votre terminal, pour ne pas prendre celle du projet qui se trouve devant.
+En revanche, **la bande d'onglets n'est pas touchée du tout** : elle garde la couleur que
+Windows Terminal lui donne, donc elle ne prend jamais celle du projet qui se trouve devant —
+et elle a exactement la même apparence, ce module installé ou non.
 
 ---
 
@@ -227,9 +228,10 @@ Windows Terminal recopie alors la couleur de fond de chaque volet sur son onglet
 bordure de la fenêtre. C'est ce qui rend la coloration visible là où ça compte, sans
 processus supplémentaire — et c'est pour cela que le thème est indispensable.
 
-La bande d'onglets en est volontairement exclue : elle est épinglée à une couleur figée, si
-bien que le bandeau ne prend jamais la couleur du projet qui se trouve devant. Voir plus bas :
-cet épinglage est aussi ce qui permet aux onglets d'arrière-plan de garder leur couleur.
+La bande d'onglets en est volontairement exclue, et laissée intacte : le thème ne déclare
+rien pour elle, donc Windows Terminal continue de la peindre comme avant. Voir plus bas :
+qu'elle ne suive pas le projet est aussi ce qui permet aux onglets d'arrière-plan de garder
+leur couleur.
 
 **3. Le calque opaque** résout le problème que ces deux mécanismes créent ensemble. Un
 thème n'accepte que quatre valeurs pour `tab.background` : `terminalBackground`, `accent`,
@@ -259,7 +261,7 @@ couleur qu'il n'a jamais posée : quand plusieurs onglets démarrent en même te
 sans couleur restaure le titre par défaut du shell — exactement ce que la fenêtre affiche tant
 que l'onglet actif n'a pas posé le sien — donc le titre seul ne suffit pas à les distinguer.
 
-### Pourquoi la bande d'onglets est épinglée et les onglets non
+### Pourquoi la bande d'onglets est laissée tranquille et les onglets non
 
 Mesuré, pas supposé : l'onglet **sélectionné** est peint avec sa propre couleur de fond, de
 façon opaque, alors qu'un onglet **d'arrière-plan** est composité à environ 30 % d'opacité
@@ -268,11 +270,20 @@ par-dessus la bande d'onglets.
 La bande est donc la base dans laquelle tout onglet d'arrière-plan se mélange. Quand elle
 portait la couleur du projet actif, ces onglets en empruntaient 70 % : un onglet noir à côté
 d'un projet `#215732` mesurait `#1A4026`, un `#61DAFB` mesurait `#347E6E` — tout devenait
-vert. Épingler la bande règle le problème à la source, et c'est aussi ce que l'on veut
-visuellement, puisque le bandeau ne suit alors jamais le projet qui se trouve devant.
+vert. Ce qui règle le problème, c'est seulement que la bande ne suive pas le projet :
+**n'importe quelle** couleur stable convient.
+
+Le thème ne déclare donc rien du tout pour elle, exactement comme les thèmes intégrés de
+Windows Terminal — `light`, `dark` et `system` ne posent pas non plus de `tabRow.background`.
+La bande garde la couleur que Windows Terminal lui donne, et installer ce module n'y change
+rien. `-TabRowColor` l'épingle si vous voulez vraiment une couleur précise.
+
+Ce que le thème reprend, en revanche, c'est `window.applicationTheme`, l'identité claire ou
+sombre du chrome, héritée du thème qu'il remplace. Sélectionner un thème remplace le
+précédent en entier : sans cela, la bande basculerait sur un Windows réglé dans l'autre mode.
 
 La conséquence à connaître : un onglet d'arrière-plan affiche une version **atténuée** de sa
-couleur, pas la couleur pleine. `#61DAFB` sur une bande épinglée à `#0C0C0C` ressort à
+couleur, pas la couleur pleine. `#61DAFB` sur une bande sombre à `#0C0C0C` ressort à
 `#254953`. Windows Terminal n'offre aucune valeur par onglet peinte de façon opaque : il n'y a
 pas de contournement.
 
@@ -320,7 +331,7 @@ Dans les trois cas, `Invoke-TerminalColorsDoctor` nomme le problème et le corre
 - **Un onglet en arrière-plan affiche une version atténuée de sa couleur**, pas la couleur
   pleine — Windows Terminal le composite à environ 30 % d'opacité par-dessus la bande
   d'onglets, et n'offre aucune valeur par onglet peinte de façon opaque. `#61DAFB` sur une
-  bande épinglée à `#0C0C0C` ressort à `#254953`. L'onglet sélectionné et la bordure de
+  bande sombre à `#0C0C0C` ressort à `#254953`. L'onglet sélectionné et la bordure de
   fenêtre portent la couleur exacte du projet.
 - **La bordure de fenêtre fait un pixel de large.** Cette épaisseur vient de Windows, et ni
   le thème ni `DwmSetWindowAttribute` n'expose de largeur. Pour une grande surface colorée,
@@ -409,7 +420,7 @@ Disable-TerminalColors              # restaure l'apparence de la session courant
 ## Développement
 
 ```powershell
-.\tests\Invoke-Tests.ps1            # 200 tests, aucune dépendance
+.\tests\Invoke-Tests.ps1            # 203 tests, aucune dépendance
 .\tests\Invoke-Tests.ps1 -Detailed
 ```
 
