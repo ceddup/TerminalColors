@@ -26,7 +26,7 @@ jobs:
     environment: powershell-gallery
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Check that the tag matches the manifest
         if: github.event_name == 'release'
