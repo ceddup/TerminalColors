@@ -32,12 +32,16 @@ that is all.
 Requirements: Windows 11, Windows Terminal, PowerShell 5.1 or 7 (both are supported).
 No administrator rights, nothing installed outside your user profile.
 
-### PowerShel commands
+### 2 PowerShell commands
+
+<div style="border: 2px solid #D32F2F; border-radius: 6px; padding: 0 1em;">
 
 ```powershell
 Install-Module TerminalColors -Scope CurrentUser
 Install-TerminalColors
 ```
+
+</div>
 
 `Install-Module` cannot do the second line's work itself: the colouring needs the Windows
 Terminal settings and your PowerShell profile to be edited, which no package manager is

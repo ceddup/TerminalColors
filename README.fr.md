@@ -32,12 +32,14 @@ PowerShell, et c'est tout.
 Prérequis : Windows 11, Windows Terminal, PowerShell 5.1 ou 7 (les deux sont pris en
 charge). Aucun droit administrateur, rien d'installé hors de votre profil utilisateur.
 
-### Taper dans PowerShell :
+### Saisissez ces deux commandes PowerShell :
 
+<div style="border: 2px solid #D32F2F; border-radius: 6px; padding: 0 1em;">
 ```powershell
 Install-Module TerminalColors -Scope CurrentUser
 Install-TerminalColors
 ```
+</div>
 
 `Install-Module` ne peut pas faire le travail de la seconde ligne : la coloration exige de
 modifier les réglages de Windows Terminal et votre profil PowerShell, ce qu'aucun
