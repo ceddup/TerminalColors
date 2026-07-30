@@ -9,6 +9,8 @@
 
 *[Version française](README.fr.md)*
 
+![Screenshot](Banner.png)
+
 If you already use [Peacock](https://marketplace.visualstudio.com/items?itemName=johnpapa.vscode-peacock)
 in VS Code or [Solution Colors](https://marketplace.visualstudio.com/items?itemName=MadsKristensen.SolutionColors)
 in Visual Studio to tell your projects apart at a glance, TerminalColors brings the same
@@ -25,32 +27,12 @@ that is all.
 
 ---
 
-## What gets coloured
-
-| Element | How | When |
-| --- | --- | --- |
-| **Selected tab** | Windows Terminal theme bound to the pane background (`tab`) | on `cd`, at full strength |
-| **Background tabs** | same mechanism, but Windows Terminal mutes them | on `cd`, each keeps its own colour |
-| **Window border** | Windows Terminal theme (`window.frame`) | on `cd`, at full strength |
-| **Tab title** | console API | on `cd` — `🟩 Oseille` |
-| **System title bar** | `DwmSetWindowAttribute` | opt-in, see [System title bar](#system-title-bar) |
-
-The project colour lands **pure** on the selected tab and on the border, while the pane you
-actually read text in stays exactly as it was. That decoupling is what the opaque backdrop
-is for — see [How it works](#how-it-works).
-
-The tab row, on the other hand, **is not touched at all**: it keeps the colour Windows
-Terminal gives it, so it never takes the colour of whichever project is in front — and it
-looks exactly the same whether this module is installed or not.
-
----
-
 ## Install
 
 Requirements: Windows 11, Windows Terminal, PowerShell 5.1 or 7 (both are supported).
 No administrator rights, nothing installed outside your user profile.
 
-### From the PowerShell Gallery
+### PowerShel commands
 
 ```powershell
 Install-Module TerminalColors -Scope CurrentUser

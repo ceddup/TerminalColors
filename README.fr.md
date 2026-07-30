@@ -9,6 +9,8 @@
 
 *[English version](README.md)*
 
+![Screenshot](Banner.png)
+
 Vous utilisez déjà [Peacock](https://marketplace.visualstudio.com/items?itemName=johnpapa.vscode-peacock)
 dans VS Code et [Solution Colors](https://marketplace.visualstudio.com/items?itemName=MadsKristensen.SolutionColors)
 dans Visual Studio pour reconnaître un projet d'un coup d'œil. TerminalColors apporte
@@ -25,32 +27,12 @@ PowerShell, et c'est tout.
 
 ---
 
-## Ce qui change de couleur
-
-| Élément | Comment | Quand |
-| --- | --- | --- |
-| **Onglet sélectionné** | thème Windows Terminal lié au fond du volet (`tab`) | dès le `cd`, en couleur pleine |
-| **Onglets en arrière-plan** | idem, mais Windows Terminal les atténue | dès le `cd`, chacun sa couleur |
-| **Bordure de fenêtre** | thème Windows Terminal (`window.frame`) | dès le `cd`, en couleur pleine |
-| **Titre de l'onglet** | API console | dès le `cd` — `🟩 Oseille` |
-| **Barre de titre système** | `DwmSetWindowAttribute` | sur demande, voir [Barre de titre système](#barre-de-titre-système) |
-
-La couleur du projet arrive **pure** sur l'onglet sélectionné et sur la bordure, tandis que
-le volet dans lequel vous lisez du texte reste exactement tel qu'il était. C'est le rôle du
-calque opaque — voir [Comment ça marche](#comment-ça-marche).
-
-En revanche, **la bande d'onglets n'est pas touchée du tout** : elle garde la couleur que
-Windows Terminal lui donne, donc elle ne prend jamais celle du projet qui se trouve devant —
-et elle a exactement la même apparence, ce module installé ou non.
-
----
-
 ## Installation
 
 Prérequis : Windows 11, Windows Terminal, PowerShell 5.1 ou 7 (les deux sont pris en
 charge). Aucun droit administrateur, rien d'installé hors de votre profil utilisateur.
 
-### Depuis la PowerShell Gallery
+### Taper dans PowerShell :
 
 ```powershell
 Install-Module TerminalColors -Scope CurrentUser
