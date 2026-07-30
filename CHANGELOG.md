@@ -21,6 +21,12 @@ First release.
   the Git repository name with an FNV-1a hash — stable, and identical on every machine.
 - **Per-Git-branch colours**, with wildcards (`release/*`, `hotfix/*`), so you notice you
   are on a release branch before running a command.
+- `Install-TerminalColors`: the whole setup in one command, so installing from the
+  PowerShell Gallery is a two-liner. It chains the theme, the backdrop and the profile
+  block, reports each step, carries on when one fails, and activates the colouring in the
+  current session. `Uninstall-TerminalColors` undoes all of it. `install.ps1` copies the
+  module and then calls this same command, so both installation paths behave identically by
+  construction.
 - `Install-TerminalColorsTheme`: installs and selects the Windows Terminal theme that binds
   the tab and the border to the pane background. `settings.json` is edited by targeted
   insertion — comments, key order and formatting are preserved — with a backup, validation
@@ -48,11 +54,10 @@ First release.
   `suppressApplicationTitle`, `-PureColor` without the backdrop, a background image of your
   own overriding the backdrop, a Windows build too old — and where each surface takes its
   colour from.
-- `install.ps1`: the whole setup in one command, no administrator rights, nothing installed
-  outside your user profile. Switches: `-SkipTheme`, `-SkipBackdrop`, `-SystemTitleBar`,
-  `-SkipProfile`, `-EnableArguments`, `-Force`, `-WhatIf`.
+- `install.ps1`, for installing from a clone: copies the module into your user modules for
+  every PowerShell edition present, then calls `Install-TerminalColors`. Same switches.
 - bash / zsh variant for Git Bash and WSL, with verified parity on automatic colours.
-- 190 tests with no external dependency, running on Windows PowerShell 5.1 and PowerShell 7.
+- 198 tests with no external dependency, running on Windows PowerShell 5.1 and PowerShell 7.
 
 ### Notes on how it works
 

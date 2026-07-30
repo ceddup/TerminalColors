@@ -1598,6 +1598,97 @@ try {
     }
 
     # ======================================================================
+    Write-Section 'Install-TerminalColors (single entry point)'
+
+    # The orchestrator must never be the reason a step is skipped silently, and it
+    # must not touch anything under -WhatIf. It is exercised with -Quiet so the
+    # test output stays readable, and with -SkipProfile so it never writes to the
+    # real PowerShell profile.
+    Test-It 'exposed by the module, with -WhatIf support' {
+        $cmd = Get-Command Install-TerminalColors -ErrorAction Stop
+        Assert-NotNull $cmd
+        Assert-True $cmd.Parameters.ContainsKey('WhatIf') 'the command must support -WhatIf'
+        foreach ($p in 'SkipTheme', 'SkipBackdrop', 'SystemTitleBar', 'SkipProfile', 'EnableArguments', 'Force', 'Quiet', 'PassThru') {
+            Assert-True $cmd.Parameters.ContainsKey($p) "-$p is missing"
+        }
+        Assert-NotNull (Get-Command Uninstall-TerminalColors -ErrorAction Stop)
+    }
+
+    Test-It 'chains theme and backdrop, and reports each step' {
+        $r = Install-TerminalColors -SkipProfile -Quiet -PassThru -Confirm:$false
+        Assert-NotNull $r
+        Assert-True ($r.Theme -in 'installed', 'already in place') "theme step: $($r.Theme)"
+        Assert-True ($r.Backdrop -in 'installed', 'already in place') "backdrop step: $($r.Backdrop)"
+        Assert-Equal 'not requested' $r.SystemTitleBar
+        Assert-Equal 0 @($r.Profiles).Count '-SkipProfile must leave the profile alone'
+    }
+
+    Test-It 'adds -PureColor to the profile line when the backdrop is in place' {
+        $r = Install-TerminalColors -SkipProfile -Quiet -PassThru -Confirm:$false
+        Assert-Equal '-PureColor' $r.EnableArguments 'the backdrop is only useful undiluted'
+    }
+
+    Test-It 'respects a dilution choice already expressed' {
+        $r = Install-TerminalColors -SkipProfile -Quiet -PassThru -EnableArguments '-Tint 0.45' -Confirm:$false
+        Assert-Equal '-Tint 0.45' $r.EnableArguments 'a stated -Tint must not gain -PureColor'
+    }
+
+    Test-It 'without the backdrop, no -PureColor is added' {
+        $r = Install-TerminalColors -SkipProfile -SkipBackdrop -Quiet -PassThru -Confirm:$false
+        Assert-Equal 'skipped' $r.Backdrop
+        Assert-True ([string]::IsNullOrEmpty($r.EnableArguments)) "expected no arguments, got [$($r.EnableArguments)]"
+    }
+
+    Test-It 'a step that fails does not stop the others' {
+        # No settings.json in sight: the theme and the backdrop must fail, and the
+        # command must still report and carry on rather than throw.
+        $r = & $m {
+            $saved = ${function:Get-TcWtSettingsPath}
+            try {
+                Set-Item -Path function:script:Get-TcWtSettingsPath -Value { return $null }
+                Install-TerminalColors -SkipProfile -Quiet -PassThru -Confirm:$false
+            } finally {
+                Set-Item -Path function:script:Get-TcWtSettingsPath -Value $saved
+            }
+        }
+        Assert-NotNull $r 'the command must return a report, not throw'
+        Assert-True ($r.Theme -like 'failed:*') "theme step: $($r.Theme)"
+        Assert-True ($r.Backdrop -like 'failed:*') "backdrop step: $($r.Backdrop)"
+    }
+
+    Test-It '-WhatIf writes nothing at all' {
+        # Including the real PowerShell profile: -WhatIf reaches it, since that is
+        # the path the command targets, so it is the one worth watching.
+        $path = New-Fixture 'entry\whatif\settings.json' $backdropSample
+        $before = [System.IO.File]::ReadAllText($path)
+
+        $realProfile = $PROFILE.CurrentUserAllHosts
+        $profileBefore = $null
+        if ([System.IO.File]::Exists($realProfile)) { $profileBefore = [System.IO.File]::ReadAllText($realProfile) }
+
+        & $m { param($p)
+            $saved = ${function:Get-TcWtSettingsPath}
+            try {
+                Set-Item -Path function:script:Get-TcWtSettingsPath -Value ([scriptblock]::Create("return '$p'"))
+                Install-TerminalColors -Quiet -WhatIf
+            } finally {
+                Set-Item -Path function:script:Get-TcWtSettingsPath -Value $saved
+            }
+        } $path | Out-Null
+
+        Assert-Equal $before ([System.IO.File]::ReadAllText($path)) 'settings.json must be untouched'
+
+        $profileAfter = $null
+        if ([System.IO.File]::Exists($realProfile)) { $profileAfter = [System.IO.File]::ReadAllText($realProfile) }
+        Assert-Equal $profileBefore $profileAfter 'the PowerShell profile must be untouched'
+    }
+
+    Test-It '-Quiet prints nothing' {
+        $output = Install-TerminalColors -SkipProfile -Quiet -Confirm:$false 6>&1 | Out-String
+        Assert-Equal '' $output.Trim() "expected no output, got [$($output.Trim())]"
+    }
+
+    # ======================================================================
     Write-Section 'Public commands'
 
     Test-It 'Set-FolderColor writes a readable configuration' {

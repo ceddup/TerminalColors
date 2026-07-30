@@ -53,12 +53,17 @@ No administrator rights, nothing installed outside your user profile.
 
 ```powershell
 Install-Module TerminalColors -Scope CurrentUser
-Import-Module TerminalColors
-
-Install-TerminalColorsTheme        # makes the tab and the window border follow the colour
-Install-TerminalColorsBackdrop     # keeps the pane readable while the tab stays vivid
-Install-TerminalColorsProfile      # enables it in every new session
+Install-TerminalColors
 ```
+
+`Install-Module` cannot do the second line's work itself: the colouring needs the Windows
+Terminal settings and your PowerShell profile to be edited, which no package manager is
+allowed to do on your behalf. `Install-TerminalColors` chains the three one-off steps —
+theme, opaque backdrop, profile block — reports each one, and activates the colouring in
+the current session. Useful switches: `-SystemTitleBar`, `-SkipBackdrop`, `-Force`,
+`-WhatIf`, `-Quiet`, `-PassThru`.
+
+`Uninstall-TerminalColors` undoes all of it.
 
 ### From a clone
 
@@ -68,9 +73,8 @@ cd TerminalColors
 .\install.ps1
 ```
 
-`install.ps1` does all of the above in one go, plus activates the colouring in the
-current session. Useful switches: `-SystemTitleBar`, `-SkipBackdrop`, `-Force`,
-`-WhatIf`.
+`install.ps1` copies the module, then calls `Install-TerminalColors` for the rest — so both
+installation paths do exactly the same thing, and it takes the same switches.
 
 Then **open a new tab** and `cd` into one of your repositories.
 
@@ -223,7 +227,8 @@ lets background tabs keep their own colour.
 only four values for `tab.background`: `terminalBackground`, `accent`, a fixed colour,
 or nothing. The only one steerable at runtime is `terminalBackground` — meaning *tab
 colour* and *background colour* are one and the same channel. Sending a vivid colour
-would make the pane unreadable, which is why 1.0 diluted it to 30 %.
+straight down it would make the pane unreadable, so without a backdrop the colour has to
+be diluted — 30 % by default.
 
 The backdrop decouples them: `OSC 11` sends the **pure** project colour, and an opaque
 background image of your usual background colour is laid over the pane. Windows Terminal
@@ -311,7 +316,7 @@ In all three cases `Invoke-TerminalColorsDoctor` names the problem and the fix.
 - A `tabColor` set on a Windows Terminal profile **overrides the theme** and pins the tab
   colour. `Invoke-TerminalColorsDoctor` reports it.
 - The opaque backdrop replaces `profiles.defaults.backgroundImage`. If you already use a
-  background image, keep `-SkipBackdrop` and the diluted 1.0 rendering.
+  background image, keep `-SkipBackdrop` and the diluted rendering it falls back to.
 - A `backgroundImage` set on an **individual profile** overrides `profiles.defaults`, so
   the backdrop has no effect in that profile. `Invoke-TerminalColorsDoctor` names the
   profiles concerned.
@@ -378,7 +383,7 @@ Uninstall-Module TerminalColors     # or delete the folder for a clone install
 ## Development
 
 ```powershell
-.\tests\Invoke-Tests.ps1            # 190 tests, no dependency
+.\tests\Invoke-Tests.ps1            # 198 tests, no dependency
 .\tests\Invoke-Tests.ps1 -Detailed
 ```
 

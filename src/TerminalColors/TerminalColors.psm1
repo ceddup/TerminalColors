@@ -31,6 +31,8 @@ Export-ModuleMember -Function @(
     'Clear-TerminalColorCache'
     'Set-FolderColor'
     'Remove-FolderColor'
+    'Install-TerminalColors'
+    'Uninstall-TerminalColors'
     'Install-TerminalColorsTheme'
     'Uninstall-TerminalColorsTheme'
     'Install-TerminalColorsBackdrop'

@@ -53,12 +53,17 @@ charge). Aucun droit administrateur, rien d'installé hors de votre profil utili
 
 ```powershell
 Install-Module TerminalColors -Scope CurrentUser
-Import-Module TerminalColors
-
-Install-TerminalColorsTheme        # fait suivre l'onglet et la bordure de fenêtre
-Install-TerminalColorsBackdrop     # garde le volet lisible avec un onglet franc
-Install-TerminalColorsProfile      # active la coloration dans chaque nouvelle session
+Install-TerminalColors
 ```
+
+`Install-Module` ne peut pas faire le travail de la seconde ligne : la coloration exige de
+modifier les réglages de Windows Terminal et votre profil PowerShell, ce qu'aucun
+gestionnaire de paquets n'a le droit de faire à votre place. `Install-TerminalColors`
+enchaîne les trois étapes — thème, calque opaque, bloc de profil — rend compte de chacune,
+et active la coloration dans la session courante. Commutateurs utiles :
+`-SystemTitleBar`, `-SkipBackdrop`, `-Force`, `-WhatIf`, `-Quiet`, `-PassThru`.
+
+`Uninstall-TerminalColors` défait l'ensemble.
 
 ### Depuis un clone
 
@@ -68,8 +73,8 @@ cd TerminalColors
 .\install.ps1
 ```
 
-`install.ps1` enchaîne tout ce qui précède et active la coloration dans la session
-courante. Commutateurs utiles : `-SystemTitleBar`, `-SkipBackdrop`, `-Force`, `-WhatIf`.
+`install.ps1` copie le module puis appelle `Install-TerminalColors` pour le reste : les deux
+chemins d'installation font donc exactement la même chose, avec les mêmes commutateurs.
 
 Puis **ouvrez un nouvel onglet** et faites `cd` dans un de vos dépôts.
 
@@ -230,7 +235,8 @@ cet épinglage est aussi ce qui permet aux onglets d'arrière-plan de garder leu
 thème n'accepte que quatre valeurs pour `tab.background` : `terminalBackground`, `accent`,
 une couleur figée, ou rien. La seule pilotable à l'exécution est `terminalBackground` —
 autrement dit, *couleur de l'onglet* et *couleur de fond* sont un seul et même canal.
-Envoyer une couleur franche rendrait le volet illisible, d'où la dilution à 30 % de la 1.0.
+Y envoyer une couleur franche rendrait le volet illisible : sans calque, la couleur doit
+donc être diluée — 30 % par défaut.
 
 Le calque découple les deux : `OSC 11` envoie la couleur **pure** du projet, et une image
 de fond opaque de votre couleur de fond habituelle est posée par-dessus dans le volet.
@@ -325,7 +331,7 @@ Dans les trois cas, `Invoke-TerminalColorsDoctor` nomme le problème et le corre
 - Un `tabColor` défini sur un profil Windows Terminal **prend le pas sur le thème** et
   figera la couleur de l'onglet. `Invoke-TerminalColorsDoctor` le signale.
 - Le calque opaque remplace `profiles.defaults.backgroundImage`. Si vous utilisez déjà une
-  image de fond, restez sur `-SkipBackdrop` et le rendu dilué de la 1.0.
+  image de fond, restez sur `-SkipBackdrop` et le rendu dilué sur lequel il se rabat.
 - Une `backgroundImage` posée sur un **profil précis** prend le pas sur
   `profiles.defaults` : le calque est alors sans effet dans ce profil.
   `Invoke-TerminalColorsDoctor` nomme les profils concernés.
@@ -392,7 +398,7 @@ Uninstall-Module TerminalColors     # ou supprimez le dossier si installé depui
 ## Développement
 
 ```powershell
-.\tests\Invoke-Tests.ps1            # 190 tests, aucune dépendance
+.\tests\Invoke-Tests.ps1            # 198 tests, aucune dépendance
 .\tests\Invoke-Tests.ps1 -Detailed
 ```
 
