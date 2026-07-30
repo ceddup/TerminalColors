@@ -26,7 +26,7 @@ jobs:
         shell: ${{ matrix.shell }}
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: PowerShell version
         run: $PSVersionTable | Format-List
@@ -41,7 +41,7 @@ jobs:
     name: Static analysis
     runs-on: windows-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Install PSScriptAnalyzer
         shell: pwsh
@@ -62,7 +62,7 @@ jobs:
     name: bash variant
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Syntax
         run: bash -n shell/terminalcolors.sh
