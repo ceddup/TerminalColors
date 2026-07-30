@@ -17,19 +17,24 @@ jobs:
         # is the one behind Windows Terminal's default profile.
         shell: [powershell, pwsh]
 
+    # The edition is selected here rather than on each step: GitHub refuses the
+    # matrix context on a step's shell: ("Unrecognized named-value: 'matrix'"),
+    # which rejects the whole file at parse time, before it can even read the
+    # workflow name. It does accept it on a job's defaults.
+    defaults:
+      run:
+        shell: ${{ matrix.shell }}
+
     steps:
       - uses: actions/checkout@v4
 
       - name: PowerShell version
-        shell: ${{ matrix.shell }}
         run: $PSVersionTable | Format-List
 
       - name: Validate the manifest
-        shell: ${{ matrix.shell }}
         run: Test-ModuleManifest -Path .\src\TerminalColors\TerminalColors.psd1 | Format-List Name, Version, PowerShellVersion
 
       - name: Tests
-        shell: ${{ matrix.shell }}
         run: .\tests\Invoke-Tests.ps1
 
   analysis:
