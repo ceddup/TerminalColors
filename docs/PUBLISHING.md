@@ -54,7 +54,15 @@ Then, in the repository settings:
    used to hijack anything else if it leaks.
 3. Copy the key — it is shown once.
 4. In GitHub: Settings → Secrets and variables → Actions → **New repository secret**, named
-   `PSGALLERY_API_KEY`.
+   `PSGALLERY_API_KEY`. Or, from a terminal, `gh secret set PSGALLERY_API_KEY`, which reads
+   the value without echoing it.
+
+> **The key expires, and its expiry is invisible from here.** The one in use was created on
+> 30 July 2026 with a 365-day life, so it stops working on **30 July 2027**. When that
+> happens, `publish.yml` fails on its *Dry run* step with a 403 that says nothing about the
+> real cause, on a commit that changed nothing relevant — an hour lost looking in the wrong
+> place. Renew the key the same way, with the same scope and glob, then overwrite the
+> secret. Nothing else needs touching: the workflow reads the secret by name.
 
 The publish workflow declares `environment: powershell-gallery`. Either create that
 environment (Settings → Environments) — where you can add a required reviewer so no
