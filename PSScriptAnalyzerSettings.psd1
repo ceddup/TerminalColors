@@ -46,9 +46,9 @@
         # which happens on machines where the WinRM/CIM service is restricted.
         'PSAvoidUsingWMICmdlet'
 
-        # install.ps1 forwards the -EnableArguments string supplied by the user
-        # themselves, who is already running the script: there is no trust
-        # boundary to cross here.
+        # Install-TerminalColors, and install.ps1 through it, forwards the
+        # -EnableArguments string supplied by the user themselves, who is already
+        # running the command: there is no trust boundary to cross here.
         'PSAvoidUsingInvokeExpression'
 
         # False positives: the rule does not see parameters used inside a nested

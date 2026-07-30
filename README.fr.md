@@ -385,12 +385,23 @@ Chaque modification de `settings.json` crée une sauvegarde
 ## Désinstallation
 
 ```powershell
+Uninstall-TerminalColors            # défait toute l'installation
+Uninstall-Module TerminalColors     # ou supprimez le dossier si installé depuis un clone
+```
+
+`Uninstall-TerminalColors` retire le bloc de profil — dans chacun des profils où
+l'installation a écrit — puis le calque opaque, la barre de titre système si elle était
+activée, et le thème, avant de restaurer l'apparence de la session courante.
+`-KeepTheme` conserve le thème installé.
+
+Chaque étape reste disponible séparément, pour ne défaire qu'une partie :
+
+```powershell
 Uninstall-TerminalColorsProfile     # retire le bloc du profil
 Uninstall-TerminalColorsBackdrop    # retire le calque opaque et ses images
 Uninstall-TerminalColorsTitleBar    # remet les onglets dans la barre de titre
 Uninstall-TerminalColorsTheme       # retire le thème et restaure le précédent
 Disable-TerminalColors              # restaure l'apparence de la session courante
-Uninstall-Module TerminalColors     # ou supprimez le dossier si installé depuis un clone
 ```
 
 ---
@@ -398,7 +409,7 @@ Uninstall-Module TerminalColors     # ou supprimez le dossier si installé depui
 ## Développement
 
 ```powershell
-.\tests\Invoke-Tests.ps1            # 198 tests, aucune dépendance
+.\tests\Invoke-Tests.ps1            # 199 tests, aucune dépendance
 .\tests\Invoke-Tests.ps1 -Detailed
 ```
 

@@ -1688,6 +1688,40 @@ try {
         Assert-Equal '' $output.Trim() "expected no output, got [$($output.Trim())]"
     }
 
+    Test-It 'the uninstall clears every profile the install wrote to' {
+        # The regression this guards: the install writes to both editions' profiles
+        # when both are present, so an uninstall that only cleaned the current
+        # edition left an Enable-TerminalColors call behind in the other - running
+        # against a theme and a backdrop that were gone. Both now read the profile
+        # list from Get-TcProfilePath, which is what this stubs.
+        $settings = New-Fixture 'entry\symmetry\settings.json' $backdropSample
+        $first = New-Fixture 'entry\symmetry\edition1\profile.ps1' '# an existing profile'
+        $second = New-Fixture 'entry\symmetry\edition2\profile.ps1' '# the other edition'
+
+        & $m { param($settingsPath, $p1, $p2)
+            $savedSettings = ${function:Get-TcWtSettingsPath}
+            $savedProfiles = ${function:Get-TcProfilePath}
+            $savedWt = ${function:Test-TcWindowsTerminal}
+            try {
+                Set-Item -Path function:script:Get-TcWtSettingsPath -Value ([scriptblock]::Create("return '$settingsPath'"))
+                Set-Item -Path function:script:Get-TcProfilePath -Value ([scriptblock]::Create("return @('$p1', '$p2')"))
+                # Neither command may touch the session running the tests.
+                Set-Item -Path function:script:Test-TcWindowsTerminal -Value { return $false }
+                Install-TerminalColors -Quiet -Confirm:$false | Out-Null
+                Uninstall-TerminalColors -Quiet -Confirm:$false | Out-Null
+            } finally {
+                Set-Item -Path function:script:Get-TcWtSettingsPath -Value $savedSettings
+                Set-Item -Path function:script:Get-TcProfilePath -Value $savedProfiles
+                Set-Item -Path function:script:Test-TcWindowsTerminal -Value $savedWt
+            }
+        } $settings $first $second | Out-Null
+
+        foreach ($path in @($first, $second)) {
+            Assert-True (-not (Test-TerminalColorsProfile -ProfilePath $path)) "the block is still in [$path]"
+            Assert-True ([System.IO.File]::Exists($path)) "[$path] must be kept, only the block removed"
+        }
+    }
+
     # ======================================================================
     Write-Section 'Public commands'
 

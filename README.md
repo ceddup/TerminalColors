@@ -112,7 +112,15 @@ To see the map of your repositories:
 
 ```powershell
 Get-ChildItem C:\Repos -Directory | Get-TerminalColor | Format-Table Name, Color, Icon, Source
+```
 
+```
+Name             Color   Icon Source
+----             -----   ---- ------
+oseille          #215732 🟩   Peacock
+pastel           #61DAFB 🟦   Peacock
+superviseur_c2   #008080 🟩   SolutionColors
+ioda_v3          #1818D8 🟦   GitRepository
 ```
 
 `Get-TerminalColor` also reports the exact file it picked (`SourcePath`), which is handy
@@ -370,12 +378,23 @@ Every change to `settings.json` writes a
 ## Uninstall
 
 ```powershell
+Uninstall-TerminalColors            # undoes the whole setup
+Uninstall-Module TerminalColors     # or delete the folder for a clone install
+```
+
+`Uninstall-TerminalColors` removes the profile block — in every profile the install
+wrote to — then the opaque backdrop, the system title bar if it was enabled, and the
+theme, and restores the current session's appearance. `-KeepTheme` leaves the theme
+installed.
+
+Each step is also available on its own, if you would rather undo only part of it:
+
+```powershell
 Uninstall-TerminalColorsProfile     # remove the block from the profile
 Uninstall-TerminalColorsBackdrop    # remove the opaque layer and its images
 Uninstall-TerminalColorsTitleBar    # restore tabs in the title bar, if enabled
 Uninstall-TerminalColorsTheme       # remove the theme and restore the previous one
 Disable-TerminalColors              # restore the current session's appearance
-Uninstall-Module TerminalColors     # or delete the folder for a clone install
 ```
 
 ---
@@ -383,7 +402,7 @@ Uninstall-Module TerminalColors     # or delete the folder for a clone install
 ## Development
 
 ```powershell
-.\tests\Invoke-Tests.ps1            # 198 tests, no dependency
+.\tests\Invoke-Tests.ps1            # 199 tests, no dependency
 .\tests\Invoke-Tests.ps1 -Detailed
 ```
 

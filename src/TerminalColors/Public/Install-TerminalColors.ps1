@@ -218,17 +218,10 @@ function Install-TerminalColors {
     if (-not $SkipProfile) {
         # Both editions' profiles when both are installed, so the colouring works
         # whichever one a Windows Terminal profile happens to launch.
-        $documents = [Environment]::GetFolderPath('MyDocuments')
-        $profilePaths = New-Object System.Collections.ArrayList
-        [void]$profilePaths.Add($PROFILE.CurrentUserAllHosts)
-        if ($PSVersionTable.PSEdition -eq 'Desktop' -and (Get-Command pwsh -ErrorAction SilentlyContinue)) {
-            [void]$profilePaths.Add((Join-Path $documents 'PowerShell\profile.ps1'))
-        } elseif ($PSVersionTable.PSEdition -eq 'Core') {
-            [void]$profilePaths.Add((Join-Path $documents 'WindowsPowerShell\profile.ps1'))
-        }
-
+        # Uninstall-TerminalColors reads the same list, so it can never clean less
+        # than what was written.
         $touched = @()
-        foreach ($profilePath in ($profilePaths | Select-Object -Unique)) {
+        foreach ($profilePath in (Get-TcProfilePath)) {
             try {
                 $step = Install-TerminalColorsProfile -ProfilePath $profilePath -EnableArguments $effectiveArguments -NoBackup:$NoBackup -WhatIf:$WhatIfPreference
                 $touched += $step.ProfilePath
@@ -309,8 +302,21 @@ function Uninstall-TerminalColors {
 
     # Order matters: the profile first, so a new session started midway does not
     # reapply what is being removed.
+    #
+    # Every profile the install writes to, not just the current edition's, read from
+    # the same helper it uses. A profile that carries no block is left alone rather
+    # than warned about: it was never touched.
+    foreach ($profilePath in (Get-TcProfilePath)) {
+        if (-not (Test-TerminalColorsProfile -ProfilePath $profilePath)) { continue }
+        try {
+            Uninstall-TerminalColorsProfile -ProfilePath $profilePath -WhatIf:$WhatIfPreference
+            Write-TcStep -Quiet:$Quiet -Message "Removed: the block in $profilePath"
+        } catch {
+            Write-TcNote -Quiet:$Quiet -Message "PowerShell profile [$profilePath]: $($_.Exception.Message)"
+        }
+    }
+
     foreach ($action in @(
-        @{ Name = 'PowerShell profile'; Script = { Uninstall-TerminalColorsProfile -WhatIf:$WhatIfPreference } }
         @{ Name = 'opaque backdrop'; Script = { Uninstall-TerminalColorsBackdrop -NoBackup:$NoBackup -WhatIf:$WhatIfPreference } }
         @{ Name = 'system title bar'; Script = { if (Test-TerminalColorsTitleBar) { Uninstall-TerminalColorsTitleBar -NoBackup:$NoBackup -WhatIf:$WhatIfPreference } } }
     )) {
