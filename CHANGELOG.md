@@ -57,7 +57,7 @@ First release.
 - `install.ps1`, for installing from a clone: copies the module into your user modules for
   every PowerShell edition present, then calls `Install-TerminalColors`. Same switches.
 - bash / zsh variant for Git Bash and WSL, with verified parity on automatic colours.
-- 199 tests with no external dependency, running on Windows PowerShell 5.1 and PowerShell 7.
+- 200 tests with no external dependency, running on Windows PowerShell 5.1 and PowerShell 7.
 
 ### Notes on how it works
 

@@ -1722,6 +1722,35 @@ try {
         }
     }
 
+    Test-It 'the uninstall reports only what it actually removed' {
+        # It used to print "Removed: <step>" unconditionally, so an uninstall on a
+        # machine where nothing was installed claimed to have removed the profile
+        # block, the backdrop, the title bar and the theme - each message printed
+        # right after the sub-command had warned there was nothing there.
+        $settings = New-Fixture 'entry\nothing\settings.json' $wtSample
+        $untouched = New-Fixture 'entry\nothing\profile.ps1' '# a profile with no TerminalColors block'
+
+        $output = & $m { param($s, $p)
+            $savedSettings = ${function:Get-TcWtSettingsPath}
+            $savedProfiles = ${function:Get-TcProfilePath}
+            $savedWt = ${function:Test-TcWindowsTerminal}
+            try {
+                Set-Item -Path function:script:Get-TcWtSettingsPath -Value ([scriptblock]::Create("return '$s'"))
+                Set-Item -Path function:script:Get-TcProfilePath -Value ([scriptblock]::Create("return @('$p')"))
+                Set-Item -Path function:script:Test-TcWindowsTerminal -Value { return $false }
+                Uninstall-TerminalColors -Confirm:$false 6>&1 3>&1
+            } finally {
+                Set-Item -Path function:script:Get-TcWtSettingsPath -Value $savedSettings
+                Set-Item -Path function:script:Get-TcProfilePath -Value $savedProfiles
+                Set-Item -Path function:script:Test-TcWindowsTerminal -Value $savedWt
+            }
+        } $settings $untouched | Out-String
+
+        Assert-True ($output -notmatch 'Removed:') "nothing was installed, yet a removal was reported: $output"
+        Assert-True ($output -match 'Nothing to remove') "it must say what it did not find: $output"
+        Assert-Equal $wtSample ([System.IO.File]::ReadAllText($settings)) 'settings.json must be untouched'
+    }
+
     # ======================================================================
     Write-Section 'Public commands'
 

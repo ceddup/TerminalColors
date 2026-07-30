@@ -70,6 +70,27 @@ function Test-TcThemeInstalled {
     return [regex]::IsMatch($masked, '"name"\s*:\s*"TerminalColors"')
 }
 
+function Test-TcThemeInSettings {
+    <#
+        .SYNOPSIS
+        Whether the theme is present in the settings.json on disk.
+
+        .DESCRIPTION
+        Test-TcThemeInstalled works on text, which suits the install path since it
+        already holds the document. A caller that only wants to know whether there
+        is anything to remove should not have to read the file itself.
+    #>
+    [CmdletBinding()]
+    [OutputType([bool])]
+    param([string] $SettingsPath)
+
+    if (-not $SettingsPath) {
+        try { $SettingsPath = Get-TcWtSettingsPath } catch { return $false }
+    }
+    if (-not $SettingsPath -or -not [System.IO.File]::Exists($SettingsPath)) { return $false }
+    return (Test-TcThemeInstalled -Text ([System.IO.File]::ReadAllText($SettingsPath)))
+}
+
 function Test-TcThemeUpToDate {
     <#
         .SYNOPSIS

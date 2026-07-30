@@ -316,34 +316,54 @@ function Uninstall-TerminalColors {
     # Every profile the install writes to, not just the current edition's, read from
     # the same helper it uses. A profile that carries no block is left alone rather
     # than warned about: it was never touched.
+    $removedProfiles = 0
     foreach ($profilePath in (Get-TcProfilePath)) {
         if (-not (Test-TerminalColorsProfile -ProfilePath $profilePath)) { continue }
         try {
             Uninstall-TerminalColorsProfile -ProfilePath $profilePath -WhatIf:$WhatIfPreference
             Write-TcStep -Quiet:$Quiet -Message "Removed: the block in $profilePath"
+            $removedProfiles++
         } catch {
             Write-TcNote -Quiet:$Quiet -Message "PowerShell profile [$profilePath]: $($_.Exception.Message)"
         }
     }
+    if ($removedProfiles -eq 0) { Write-TcStep -Quiet:$Quiet -Message 'Nothing to remove: the PowerShell profile block' }
 
-    foreach ($action in @(
-        @{ Name = 'opaque backdrop'; Script = { Uninstall-TerminalColorsBackdrop -NoBackup:$NoBackup -WhatIf:$WhatIfPreference } }
-        @{ Name = 'system title bar'; Script = { if (Test-TerminalColorsTitleBar) { Uninstall-TerminalColorsTitleBar -NoBackup:$NoBackup -WhatIf:$WhatIfPreference } } }
-    )) {
-        try {
-            & $action.Script | Out-Null
-            Write-TcStep -Quiet:$Quiet -Message "Removed: $($action.Name)"
-        } catch {
-            Write-TcNote -Quiet:$Quiet -Message "$($action.Name): $($_.Exception.Message)"
-        }
+    # Every step states what it found before saying what it did. An unconditional
+    # "Removed" - printed even right after the sub-command had warned there was
+    # nothing there - makes the whole report worthless: an uninstall on a machine
+    # where nothing was installed claimed to have removed all of it.
+    $steps = @(
+        @{ Name = 'the opaque backdrop'
+           Installed = { (Test-TerminalColorsBackdrop).Installed }
+           Remove = { Uninstall-TerminalColorsBackdrop -NoBackup:$NoBackup -WhatIf:$WhatIfPreference } }
+        @{ Name = 'the system title bar'
+           Installed = { Test-TerminalColorsTitleBar }
+           Remove = { Uninstall-TerminalColorsTitleBar -NoBackup:$NoBackup -WhatIf:$WhatIfPreference } }
+    )
+    if (-not $KeepTheme) {
+        $steps += @{ Name = 'the Windows Terminal theme'
+                     Installed = { Test-TcThemeInSettings }
+                     Remove = { Uninstall-TerminalColorsTheme -NoBackup:$NoBackup -WhatIf:$WhatIfPreference } }
     }
 
-    if (-not $KeepTheme) {
+    foreach ($step in $steps) {
+        $present = $false
         try {
-            Uninstall-TerminalColorsTheme -NoBackup:$NoBackup -WhatIf:$WhatIfPreference | Out-Null
-            Write-TcStep -Quiet:$Quiet -Message 'Removed: Windows Terminal theme'
+            $present = [bool](& $step.Installed)
         } catch {
-            Write-TcNote -Quiet:$Quiet -Message "Theme: $($_.Exception.Message)"
+            Write-TcNote -Quiet:$Quiet -Message "$($step.Name): $($_.Exception.Message)"
+            continue
+        }
+        if (-not $present) {
+            Write-TcStep -Quiet:$Quiet -Message "Nothing to remove: $($step.Name)"
+            continue
+        }
+        try {
+            & $step.Remove | Out-Null
+            Write-TcStep -Quiet:$Quiet -Message "Removed: $($step.Name)"
+        } catch {
+            Write-TcNote -Quiet:$Quiet -Message "$($step.Name): $($_.Exception.Message)"
         }
     }
 

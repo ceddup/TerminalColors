@@ -409,7 +409,7 @@ Disable-TerminalColors              # restaure l'apparence de la session courant
 ## Développement
 
 ```powershell
-.\tests\Invoke-Tests.ps1            # 199 tests, aucune dépendance
+.\tests\Invoke-Tests.ps1            # 200 tests, aucune dépendance
 .\tests\Invoke-Tests.ps1 -Detailed
 ```
 
